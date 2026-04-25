@@ -65,6 +65,35 @@ TAMANHO_LOTE = 10
 
 # --- FUNÇÕES UTILITÁRIAS ---
 
+def normalizar_nome_col(nome: str) -> str:
+    """Remove sufixos como ' (S)', ' (N)', ' (E)' e normaliza para lower sem espaços."""
+    import re
+    nome = re.sub(r'\s*\([A-Z]\)\s*$', '', str(nome))
+    return nome.strip().lower()
+
+
+def resolver_coluna(df: pd.DataFrame, nome_desejado: str) -> str:
+    """
+    Retorna o nome real da coluna no DataFrame que corresponde a nome_desejado,
+    ignorando maiúsculas/minúsculas e sufixos como ' (S)', ' (N)'.
+    Retorna nome_desejado se não encontrar (para criação posterior).
+    """
+    alvo = normalizar_nome_col(nome_desejado)
+    for col in df.columns:
+        if normalizar_nome_col(col) == alvo:
+            return col
+    return nome_desejado
+
+
+def resolver_colunas_editaveis(df: pd.DataFrame) -> list:
+    """Retorna os nomes reais das colunas editáveis conforme existem no DataFrame."""
+    return [resolver_coluna(df, c) for c in COLUNAS_EDITAVEIS]
+
+
+def resolver_colunas_obrigatorias(df: pd.DataFrame) -> list:
+    """Retorna os nomes reais das colunas obrigatórias conforme existem no DataFrame."""
+    return [resolver_coluna(df, c) for c in COLUNAS_OBRIGATORIAS]
+
 def calcular_hash(df: pd.DataFrame) -> str:
     return hashlib.sha256(pd.util.hash_pandas_object(df, index=True).values.tobytes()).hexdigest()
 
@@ -82,28 +111,31 @@ def normalizar_ean(valor) -> str:
 def validar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """Retorna DataFrame de erros encontrados."""
     erros = []
+    cols_obrigatorias_reais = resolver_colunas_obrigatorias(df)
+    col_ean_real = resolver_coluna(df, "EAN")
+
     for idx, row in df.iterrows():
         # Apenas SKU é obrigatório
         vazios = [
-            col for col in COLUNAS_OBRIGATORIAS
-            if col in df.columns and (pd.isna(row[col]) or str(row[col]).strip() == "")
+            col for col in cols_obrigatorias_reais
+            if col in df.columns and (pd.isna(row[col]) or str(row[col]).strip() in ("", "None", "nan"))
         ]
         if vazios:
             erros.append({
                 "Linha": idx + 1,
-                "Campo": ", ".join(vazios),
+                "Campo": "SKU",
                 "Descrição": "SKU não preenchido — execute o PROCV para preencher",
                 "Severidade": "Alta",
             })
 
         # EAN — validação opcional (só se preenchido)
-        if "EAN" in df.columns:
-            ean_str = normalizar_ean(row["EAN"])
+        if col_ean_real in df.columns:
+            ean_str = normalizar_ean(row[col_ean_real])
             if ean_str and not ean_str.isdigit():
                 erros.append({
                     "Linha": idx + 1,
                     "Campo": "EAN",
-                    "Descrição": f"EAN inválido: '{row['EAN']}' (deve conter apenas números)",
+                    "Descrição": f"EAN inválido: '{row[col_ean_real]}' (deve conter apenas números)",
                     "Severidade": "Média",
                 })
             if ean_str and ean_str.isdigit() and len(ean_str) not in (8, 12, 13):
@@ -220,9 +252,13 @@ with tab_busca:
     c1.markdown(f'<div class="metric-box"><div class="valor">{len(df):,}</div><div class="label">Total de Linhas</div></div>', unsafe_allow_html=True)
     c2.markdown(f'<div class="metric-box"><div class="valor">{len(df.columns)}</div><div class="label">Colunas</div></div>', unsafe_allow_html=True)
     vazios_total = 0
-    for col in COLUNAS_OBRIGATORIAS:
-        if col in df.columns:
-            vazios_total += df[col].isna().sum() + (df[col].astype(str).str.strip() == "").sum()
+    for col_desejada in COLUNAS_OBRIGATORIAS:
+        col_real = resolver_coluna(df, col_desejada)
+        if col_real in df.columns:
+            vazios_total += (
+                df[col_real].isna().sum()
+                + (df[col_real].astype(str).str.strip().isin(["", "None", "nan"])).sum()
+            )
     pct_completo = 100 - (vazios_total / max(len(df), 1) * 100)
     c3.markdown(f'<div class="metric-box"><div class="valor">{int(vazios_total)}</div><div class="label">SKUs Vazios</div></div>', unsafe_allow_html=True)
     c4.markdown(f'<div class="metric-box"><div class="valor">{pct_completo:.0f}%</div><div class="label">SKUs Preenchidos</div></div>', unsafe_allow_html=True)
@@ -302,9 +338,11 @@ with tab_procv:
 
         # Coluna chave do sistema — tenta pré-selecionar automaticamente
         opcoes_sistema = list(st.session_state.df_principal.columns)
+        col_id_real = resolver_coluna(st.session_state.df_principal, COLUNA_ID_ANUNCIO)
+        col_sku_real = resolver_coluna(st.session_state.df_principal, COLUNA_SKU)
         idx_default_sistema = (
-            opcoes_sistema.index(COLUNA_ID_ANUNCIO)
-            if COLUNA_ID_ANUNCIO in opcoes_sistema else 0
+            opcoes_sistema.index(col_id_real)
+            if col_id_real in opcoes_sistema else 0
         )
         col_id_sistema = col_a.selectbox(
             "🔑 Coluna de ID na planilha do **Sistema**",
@@ -329,7 +367,7 @@ with tab_procv:
         col_sku_sistema = col_d.selectbox(
             "📦 Coluna de SKU no **Sistema** (destino)",
             opcoes_sistema,
-            index=opcoes_sistema.index(COLUNA_SKU) if COLUNA_SKU in opcoes_sistema else 0,
+            index=opcoes_sistema.index(col_sku_real) if col_sku_real in opcoes_sistema else 0,
         )
 
         # Preview do mapeamento
@@ -492,10 +530,12 @@ with tab_export:
     fim = min(inicio + TAMANHO_LOTE, len(df_final))
     preview_lote = df_final.iloc[inicio:fim]
 
-    # Exibe colunas relevantes: ID do anúncio + SKU + outras editáveis presentes
-    colunas_preview = [COLUNA_ID_ANUNCIO] if COLUNA_ID_ANUNCIO in df_final.columns else []
-    colunas_preview += [c for c in COLUNAS_EDITAVEIS if c in df_final.columns and c not in colunas_preview]
-    colunas_exibicao = list(dict.fromkeys(colunas_preview))  # sem duplicatas
+    col_id_real = resolver_coluna(df_final, COLUNA_ID_ANUNCIO)
+    col_sku_real = resolver_coluna(df_final, COLUNA_SKU)
+    colunas_preview = [col_id_real] if col_id_real in df_final.columns else []
+    colunas_editaveis_reais = resolver_colunas_editaveis(df_final)
+    colunas_preview += [c for c in colunas_editaveis_reais if c in df_final.columns and c not in colunas_preview]
+    colunas_exibicao = list(dict.fromkeys(colunas_preview))
 
     status_atual = st.session_state.qa_checks.get(lote_atual, "—")
     st.caption(f"Lote **{lote_atual}/{total_lotes}** | Linhas {inicio + 1}–{fim} | Status atual: `{status_atual}`")
