@@ -54,7 +54,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CONSTANTES ---
+# Coluna obrigatória que será preenchida via PROCV
+COLUNA_SKU = "SKU"
+# Coluna chave da planilha do sistema para o De-Para
+COLUNA_ID_ANUNCIO = "ID do canal de venda"
+# Todas as colunas editáveis (apenas SKU é obrigatória)
 COLUNAS_EDITAVEIS = ["Marca", "EAN", "SKU", "Kit quantidade", "Código Depósito"]
+COLUNAS_OBRIGATORIAS = ["SKU"]
 TAMANHO_LOTE = 10
 
 # --- FUNÇÕES UTILITÁRIAS ---
@@ -77,37 +83,36 @@ def validar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """Retorna DataFrame de erros encontrados."""
     erros = []
     for idx, row in df.iterrows():
-        # Campos obrigatórios vazios
+        # Apenas SKU é obrigatório
         vazios = [
-            col for col in COLUNAS_EDITAVEIS
-            if pd.isna(row[col]) or str(row[col]).strip() == ""
+            col for col in COLUNAS_OBRIGATORIAS
+            if col in df.columns and (pd.isna(row[col]) or str(row[col]).strip() == "")
         ]
         if vazios:
             erros.append({
                 "Linha": idx + 1,
                 "Campo": ", ".join(vazios),
-                "Descrição": "Campo(s) obrigatório(s) vazio(s)",
+                "Descrição": "SKU não preenchido — execute o PROCV para preencher",
                 "Severidade": "Alta",
             })
 
-        # EAN inválido — apenas dígitos, após normalização
-        ean_str = normalizar_ean(row["EAN"])
-        if ean_str and not ean_str.isdigit():
-            erros.append({
-                "Linha": idx + 1,
-                "Campo": "EAN",
-                "Descrição": f"EAN inválido: '{row['EAN']}' (deve conter apenas números)",
-                "Severidade": "Média",
-            })
-
-        # EAN com comprimento incomum (EAN deve ter 8, 12 ou 13 dígitos)
-        if ean_str and ean_str.isdigit() and len(ean_str) not in (8, 12, 13):
-            erros.append({
-                "Linha": idx + 1,
-                "Campo": "EAN",
-                "Descrição": f"EAN com {len(ean_str)} dígito(s) — esperado 8, 12 ou 13",
-                "Severidade": "Baixa",
-            })
+        # EAN — validação opcional (só se preenchido)
+        if "EAN" in df.columns:
+            ean_str = normalizar_ean(row["EAN"])
+            if ean_str and not ean_str.isdigit():
+                erros.append({
+                    "Linha": idx + 1,
+                    "Campo": "EAN",
+                    "Descrição": f"EAN inválido: '{row['EAN']}' (deve conter apenas números)",
+                    "Severidade": "Média",
+                })
+            if ean_str and ean_str.isdigit() and len(ean_str) not in (8, 12, 13):
+                erros.append({
+                    "Linha": idx + 1,
+                    "Campo": "EAN",
+                    "Descrição": f"EAN com {len(ean_str)} dígito(s) — esperado 8, 12 ou 13",
+                    "Severidade": "Baixa",
+                })
 
     return pd.DataFrame(erros) if erros else pd.DataFrame(
         columns=["Linha", "Campo", "Descrição", "Severidade"]
@@ -214,10 +219,13 @@ with tab_busca:
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f'<div class="metric-box"><div class="valor">{len(df):,}</div><div class="label">Total de Linhas</div></div>', unsafe_allow_html=True)
     c2.markdown(f'<div class="metric-box"><div class="valor">{len(df.columns)}</div><div class="label">Colunas</div></div>', unsafe_allow_html=True)
-    vazios_total = df[COLUNAS_EDITAVEIS].isnull().sum().sum() + (df[COLUNAS_EDITAVEIS] == "").sum().sum()
-    c3.markdown(f'<div class="metric-box"><div class="valor">{int(vazios_total)}</div><div class="label">Campos Obrigatórios Vazios</div></div>', unsafe_allow_html=True)
-    pct_completo = 100 - (vazios_total / max(len(df) * len(COLUNAS_EDITAVEIS), 1) * 100)
-    c4.markdown(f'<div class="metric-box"><div class="valor">{pct_completo:.0f}%</div><div class="label">Completude dos Dados</div></div>', unsafe_allow_html=True)
+    vazios_total = 0
+    for col in COLUNAS_OBRIGATORIAS:
+        if col in df.columns:
+            vazios_total += df[col].isna().sum() + (df[col].astype(str).str.strip() == "").sum()
+    pct_completo = 100 - (vazios_total / max(len(df), 1) * 100)
+    c3.markdown(f'<div class="metric-box"><div class="valor">{int(vazios_total)}</div><div class="label">SKUs Vazios</div></div>', unsafe_allow_html=True)
+    c4.markdown(f'<div class="metric-box"><div class="valor">{pct_completo:.0f}%</div><div class="label">SKUs Preenchidos</div></div>', unsafe_allow_html=True)
 
     st.markdown("")
     termo = st.text_input("🔎 Filtrar por qualquer campo (SKU, Nome, Marca, EAN...):", placeholder="Digite para buscar...")
@@ -272,70 +280,117 @@ with tab_editor:
 # ABA 3 — PROCV / DE-PARA
 # ============================================================
 with tab_procv:
-    st.header("Merge com Base Externa (De-Para)")
-    st.markdown("Faça upload da planilha do cliente para cruzar e preencher os campos editáveis automaticamente.")
+    st.header("PROCV — Preencher SKU pelo ID do Anúncio")
+    st.markdown(
+        "Faça upload da planilha do cliente que contém o **ID do anúncio** e o **SKU** correspondente. "
+        "O sistema irá cruzar pelo `ID do canal de venda` e preencher a coluna `SKU` automaticamente."
+    )
 
-    ext_file = st.file_uploader("Planilha do cliente", type=["xlsx", "csv"], key="ext_upload")
+    ext_file = st.file_uploader("Planilha do cliente (.xlsx ou .csv)", type=["xlsx", "csv"], key="ext_upload")
 
     if ext_file:
         df_ext = ler_arquivo(ext_file)
-        st.caption(f"Planilha externa: **{ext_file.name}** — {len(df_ext):,} linhas, {len(df_ext.columns)} colunas")
-        st.dataframe(df_ext.head(5), use_container_width=True)
+        st.caption(f"Planilha carregada: **{ext_file.name}** — {len(df_ext):,} linhas, {len(df_ext.columns)} colunas")
+
+        with st.expander("👁️ Visualizar primeiras linhas da planilha do cliente"):
+            st.dataframe(df_ext.head(8), use_container_width=True)
 
         st.divider()
+        st.subheader("Configurar De-Para")
+
         col_a, col_b = st.columns(2)
-        col_chave_sistema = col_a.selectbox(
-            "Coluna chave no **Sistema** (esquerda)",
-            st.session_state.df_principal.columns,
+
+        # Coluna chave do sistema — tenta pré-selecionar automaticamente
+        opcoes_sistema = list(st.session_state.df_principal.columns)
+        idx_default_sistema = (
+            opcoes_sistema.index(COLUNA_ID_ANUNCIO)
+            if COLUNA_ID_ANUNCIO in opcoes_sistema else 0
         )
-        col_chave_cliente = col_b.selectbox(
-            "Coluna chave no **Cliente** (direita)",
-            df_ext.columns,
+        col_id_sistema = col_a.selectbox(
+            "🔑 Coluna de ID na planilha do **Sistema**",
+            opcoes_sistema,
+            index=idx_default_sistema,
+            help="Geralmente: 'ID do canal de venda'",
         )
 
-        colunas_importar = st.multiselect(
-            "Quais colunas da planilha externa deseja importar para os campos editáveis?",
-            [c for c in df_ext.columns if c != col_chave_cliente],
-            help="Apenas colunas presentes nos campos editáveis serão mescladas automaticamente.",
+        # Coluna chave do cliente
+        col_id_cliente = col_b.selectbox(
+            "🔑 Coluna de ID na planilha do **Cliente**",
+            df_ext.columns,
+            help="Coluna que contém o mesmo ID do anúncio",
+        )
+
+        col_c, col_d = st.columns(2)
+        col_sku_cliente = col_c.selectbox(
+            "📦 Coluna de SKU na planilha do **Cliente**",
+            df_ext.columns,
+            help="Coluna cujo valor será copiado para o SKU do sistema",
+        )
+        col_sku_sistema = col_d.selectbox(
+            "📦 Coluna de SKU no **Sistema** (destino)",
+            opcoes_sistema,
+            index=opcoes_sistema.index(COLUNA_SKU) if COLUNA_SKU in opcoes_sistema else 0,
+        )
+
+        # Preview do mapeamento
+        st.markdown("")
+        st.info(
+            f"**Lógica:** Para cada linha do sistema, busca `{col_id_sistema}` "
+            f"na coluna `{col_id_cliente}` do cliente → copia `{col_sku_cliente}` para `{col_sku_sistema}`"
+        )
+
+        sobrescrever = st.checkbox(
+            "Sobrescrever SKUs já preenchidos",
+            value=False,
+            help="Se desmarcado, apenas linhas com SKU vazio serão preenchidas.",
         )
 
         if st.button("▶️ Executar De-Para", type="primary"):
             df_base = st.session_state.df_principal.copy()
-            colunas_originais = list(df_base.columns)
 
-            df_ext_filtrado = df_ext[[col_chave_cliente] + colunas_importar].copy()
-            df_ext_filtrado = df_ext_filtrado.rename(
-                columns={c: f"__ext_{c}" for c in colunas_importar}
-            )
+            # Normaliza tipo da coluna chave para evitar mismatch int/str
+            df_base[col_id_sistema] = df_base[col_id_sistema].astype(str).str.strip()
+            df_ext[col_id_cliente] = df_ext[col_id_cliente].astype(str).str.strip()
 
-            df_merge = pd.merge(
-                df_base,
-                df_ext_filtrado,
-                left_on=col_chave_sistema,
-                right_on=col_chave_cliente if col_chave_cliente != col_chave_sistema else col_chave_cliente,
-                how="left",
-            )
+            # Cria dicionário de lookup: ID → SKU
+            lookup = df_ext.dropna(subset=[col_id_cliente, col_sku_cliente])
+            lookup = lookup.drop_duplicates(subset=[col_id_cliente])
+            mapa_sku = dict(zip(lookup[col_id_cliente], lookup[col_sku_cliente]))
 
-            matched = df_merge[f"__ext_{colunas_importar[0]}"].notna().sum() if colunas_importar else 0
+            # Garante que coluna destino existe
+            if col_sku_sistema not in df_base.columns:
+                df_base[col_sku_sistema] = ""
 
-            # Atualiza campos editáveis com dados externos (prioriza externo)
-            for col in colunas_importar:
-                ext_col = f"__ext_{col}"
-                if ext_col in df_merge.columns:
-                    if col in df_merge.columns:
-                        df_merge[col] = df_merge[ext_col].fillna(df_merge[col])
-                    else:
-                        df_merge[col] = df_merge[ext_col]
+            # Aplica o lookup
+            def preencher_sku(row):
+                sku_atual = str(row[col_sku_sistema]).strip() if not pd.isna(row[col_sku_sistema]) else ""
+                if sku_atual and not sobrescrever:
+                    return row[col_sku_sistema]  # mantém existente
+                return mapa_sku.get(str(row[col_id_sistema]).strip(), row[col_sku_sistema])
 
-            # Remove colunas auxiliares e mantém apenas as originais + novas
-            colunas_finais = colunas_originais + [
-                c for c in colunas_importar if c not in colunas_originais
-            ]
-            df_merge = df_merge[[c for c in colunas_finais if c in df_merge.columns]]
+            df_base[col_sku_sistema] = df_base.apply(preencher_sku, axis=1)
 
-            st.session_state.df_principal = garantir_colunas(df_merge)
+            # Métricas do resultado
+            total = len(df_base)
+            preenchidos = df_base[col_sku_sistema].notna().sum()
+            preenchidos -= (df_base[col_sku_sistema].astype(str).str.strip() == "").sum()
+            nao_encontrados = total - preenchidos
+
+            st.session_state.df_principal = df_base
             st.session_state.df_erros_cache = None
-            st.success(f"✅ Merge concluído! **{matched:,}** linhas correspondidas de {len(df_base):,}.")
+
+            col_r1, col_r2, col_r3 = st.columns(3)
+            col_r1.success(f"✅ **{int(preenchidos):,}** SKUs preenchidos")
+            col_r2.warning(f"⚠️ **{int(nao_encontrados):,}** IDs sem correspondência")
+            col_r3.info(f"📋 **{total:,}** linhas no total")
+
+            if nao_encontrados > 0:
+                sem_match = df_base[
+                    df_base[col_sku_sistema].isna() |
+                    (df_base[col_sku_sistema].astype(str).str.strip() == "")
+                ][[col_id_sistema]].copy()
+                with st.expander(f"Ver {len(sem_match)} IDs sem correspondência"):
+                    st.dataframe(sem_match, use_container_width=True)
 
 
 # ============================================================
@@ -437,9 +492,10 @@ with tab_export:
     fim = min(inicio + TAMANHO_LOTE, len(df_final))
     preview_lote = df_final.iloc[inicio:fim]
 
-    # Exibe apenas colunas editáveis (sem duplicatas)
-    colunas_exibicao = list(dict.fromkeys(COLUNAS_EDITAVEIS))
-    colunas_exibicao = [c for c in colunas_exibicao if c in df_final.columns]
+    # Exibe colunas relevantes: ID do anúncio + SKU + outras editáveis presentes
+    colunas_preview = [COLUNA_ID_ANUNCIO] if COLUNA_ID_ANUNCIO in df_final.columns else []
+    colunas_preview += [c for c in COLUNAS_EDITAVEIS if c in df_final.columns and c not in colunas_preview]
+    colunas_exibicao = list(dict.fromkeys(colunas_preview))  # sem duplicatas
 
     status_atual = st.session_state.qa_checks.get(lote_atual, "—")
     st.caption(f"Lote **{lote_atual}/{total_lotes}** | Linhas {inicio + 1}–{fim} | Status atual: `{status_atual}`")
