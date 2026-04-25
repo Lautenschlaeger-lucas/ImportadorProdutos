@@ -163,7 +163,8 @@ if st.session_state.df_principal is not None:
         fim = inicio + tamanho_lote
         preview_lote = df_final.iloc[inicio:fim]
         
-        st.dataframe(preview_lote[COLUNAS_EDITAVEIS + ["SKU"]], use_container_width=True)
+        colunas_exibicao = list(dict.fromkeys(COLUNAS_EDITAVEIS + ["SKU"]))
+        st.dataframe(preview_lote[colunas_exibicao], use_container_width=True)
         
         col_ok, col_cor = st.columns(2)
         if col_ok.button(f"Marcar Lote {lote_atual} como OK"):
