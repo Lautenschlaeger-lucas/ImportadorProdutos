@@ -1,201 +1,201 @@
 import streamlit as st
 import pandas as pd
-import math
 import io
+import uuid
+import hashlib
 from datetime import datetime
+import math
 
-# ==========================================
-# CONFIGURAÇÃO DA PÁGINA
-# ==========================================
-st.set_page_config(page_title="Portal de Importação de Produtos", layout="wide", page_icon="📦")
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="Importador Pro v2", layout="wide", page_icon="🚀")
 
-# ==========================================
-# INICIALIZAÇÃO DO ESTADO (SESSION STATE)
-# ==========================================
-# Isso garante que a planilha não suma quando o usuário trocar de aba
-if 'base_padrao' not in st.session_state:
-    # Base de dados simulada (O seu sistema "interno")
-    st.session_state.base_padrao = pd.DataFrame({
-        "SKU": ["SKU001", "SKU002", "SKU003", "SKU004"],
-        "Nome": ["Camiseta Básica", "Calça Jeans", "Tênis Esportivo", "Jaqueta Couro"],
-        "Preco_Alvo": [49.90, 129.90, 199.90, 299.90],
-        "Categoria": ["Roupas", "Roupas", "Calçados", "Roupas"]
-    })
+# --- CSS PARA INTERFACE PROFISSIONAL ---
+st.markdown("""
+    <style>
+    .editable-col { background-color: #e8f4ea; border-radius: 5px; padding: 5px; }
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #f0f2f6;
+        border-radius: 4px 4px 0px 0px;
+        padding: 10px 20px;
+    }
+    .stTabs [aria-selected="true"] { background-color: #007bff !important; color: white !important; }
+    </style>
+""", unsafe_allow_html=True)
 
-if 'df_trabalho' not in st.session_state:
-    st.session_state.df_trabalho = pd.DataFrame(columns=["SKU", "Nome", "Preco_Alvo", "Categoria"])
+# --- INICIALIZAÇÃO DE ESTADO ---
+if 'df_principal' not in st.session_state:
+    st.session_state.df_principal = None
+if 'qa_checks' not in st.session_state:
+    st.session_state.qa_checks = {}
+if 'session_id' not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())[:8].upper()
 
-if 'blocos_validados' not in st.session_state:
-    st.session_state.blocos_validados = []
+# Colunas Editáveis (S) conforme solicitado
+COLUNAS_EDITAVEIS = ["Marca", "EAN", "SKU", "Kit quantidade", "Código Depósito"]
 
-# ==========================================
-# INTERFACE PRINCIPAL
-# ==========================================
-st.title("📦 Sistema de Importação & Validação de Produtos")
-st.markdown("Bem-vindo. Siga as abas abaixo para mapear, validar e exportar seus produtos com segurança.")
+def calcular_hash(df):
+    return hashlib.sha256(df.to_csv().encode()).hexdigest()
 
-# Criando as 6 Abas
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "① Busca & Preview", 
-    "② Editor de Planilha", 
-    "③ PROCV / De-Para", 
-    "④ Validação & Erros", 
-    "⑤ Perfis de Mapeamento", 
-    "⑥ Checkout & Exportação"
-])
-
-# --- ABA 1: BUSCA E PREVIEW ---
-with tab1:
-    st.header("Busca Manual de Produtos")
-    st.write("Pesquise um produto na base mestre para adicionar manualmente à sua planilha.")
+# --- SIDEBAR: UPLOAD DO SISTEMA ---
+with st.sidebar:
+    st.title(f"Sessão: {st.session_state.session_id}")
+    st.subheader("📁 Carga Interna")
+    uploaded_file = st.file_uploader("Planilha do Sistema", type=["xlsx", "csv"])
     
-    busca = st.text_input("🔍 Digite o SKU ou Nome do produto:")
-    if busca:
-        resultados = st.session_state.base_padrao[
-            st.session_state.base_padrao['SKU'].str.contains(busca, case=False) |
-            st.session_state.base_padrao['Nome'].str.contains(busca, case=False)
-        ]
-        st.dataframe(resultados, use_container_width=True)
-        
-        if not resultados.empty:
-            if st.button("➕ Adicionar à Planilha de Trabalho"):
-                st.session_state.df_trabalho = pd.concat([st.session_state.df_trabalho, resultados]).drop_duplicates(subset=['SKU'])
-                st.success("Produto adicionado com sucesso! Vá para a aba 'Editor de Planilha'.")
-
-# --- ABA 2: EDITOR VIVO ---
-with tab2:
-    st.header("Editor de Planilha (Live)")
-    st.write("Edite os dados diretamente na tabela abaixo. As alterações são salvas automaticamente.")
-    
-    if st.session_state.df_trabalho.empty:
-        st.info("Sua planilha está vazia. Adicione produtos na aba Busca ou importe via PROCV.")
-    else:
-        # st.data_editor permite edição estilo Excel
-        df_editado = st.data_editor(
-            st.session_state.df_trabalho,
-            num_rows="dynamic",
-            use_container_width=True,
-            key="editor_planilha"
-        )
-        st.session_state.df_trabalho = df_editado # Atualiza o estado com a edição
-
-# --- ABA 3: PROCV / DE-PARA ---
-with tab3:
-    st.header("Importação em Massa (De-Para)")
-    arquivo_cliente = st.file_uploader("📂 Suba a planilha do seu sistema (.csv ou .xlsx)", type=['csv', 'xlsx'])
-    
-    if arquivo_cliente:
-        try:
-            if arquivo_cliente.name.endswith('.csv'):
-                df_cliente = pd.read_csv(arquivo_cliente)
+    if uploaded_file:
+        if st.session_state.df_principal is None:
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
             else:
-                df_cliente = pd.read_excel(arquivo_cliente)
-                
-            colunas_cliente = df_cliente.columns.tolist()
+                df = pd.read_excel(uploaded_file)
             
-            st.subheader("Mapeamento de Colunas")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                chave_cliente = st.selectbox("1. Qual coluna da sua planilha tem o SKU?", ["Selecione..."] + colunas_cliente)
-            with col2:
-                st.info("A chave alvo no sistema será sempre o 'SKU'.")
-                
-            if chave_cliente != "Selecione...":
-                if st.button("🚀 Executar Merge (PROCV)"):
-                    # Faz o merge da base do cliente com a base padrão usando o SKU
-                    df_merge = pd.merge(df_cliente, st.session_state.base_padrao, left_on=chave_cliente, right_on="SKU", how="inner")
-                    st.session_state.df_trabalho = df_merge
-                    st.success(f"{len(df_merge)} produtos cruzados e importados com sucesso!")
-        except Exception as e:
-            st.error(f"Erro ao ler o arquivo: {e}")
+            # Garante que as colunas obrigatórias existem
+            for col in COLUNAS_EDITAVEIS:
+                if col not in df.columns:
+                    df[col] = ""
+            st.session_state.df_principal = df
+            st.success("Base carregada!")
 
-# --- ABA 4: VALIDAÇÃO & ERROS ---
-with tab4:
-    st.header("Painel de Validação")
-    df_atual = st.session_state.df_trabalho
-    
-    if df_atual.empty:
-        st.warning("Nenhum dado para validar.")
-    else:
-        erros = df_atual[df_atual.isnull().any(axis=1)]
-        linhas_ok = len(df_atual) - len(erros)
-        
-        col1, col2 = st.columns(2)
-        col1.metric("✅ Linhas Validadas", linhas_ok)
-        col2.metric("❌ Linhas com Erro (Campos Vazios)", len(erros))
-        
-        if not erros.empty:
-            st.error("Atenção: As linhas abaixo possuem campos vazios e precisam de correção na aba Editor.")
-            st.dataframe(erros, use_container_width=True)
+    st.divider()
+    st.info("💡 Dica: Use Ctrl+Shift+V para pular para o PROCV")
+
+# --- CORPO PRINCIPAL (ABAS) ---
+if st.session_state.df_principal is not None:
+    tab_busca, tab_editor, tab_procv, tab_erros, tab_export = st.tabs([
+        "🔍 Busca & Preview", 
+        "📝 Editor de Planilha", 
+        "🔗 PROCV / De-Para", 
+        "🚨 Validação & Erros", 
+        "✅ Exportação (QA)"
+    ])
+
+    # --- ABA 1: BUSCA & PREVIEW ---
+    with tab_busca:
+        st.header("Pesquisa Rápida")
+        termo = st.text_input("Filtrar por qualquer campo (SKU, Nome, Marca...):")
+        if termo:
+            mask = st.session_state.df_principal.astype(str).apply(lambda x: x.str.contains(termo, case=False)).any(axis=1)
+            resultados = st.session_state.df_principal[mask]
+            st.dataframe(resultados, use_container_width=True)
         else:
-            st.success("Tudo certo! Base pronta para revisão e exportação.")
+            st.write("Digite algo para buscar.")
 
-# --- ABA 5: PERFIS ---
-with tab5:
-    st.header("Perfis de Mapeamento")
-    st.write("Salve o mapeamento feito na aba anterior para não precisar refazer na próxima semana.")
-    
-    nome_perfil = st.text_input("Nome do Perfil (Ex: Sistema Loja B)")
-    if st.button("💾 Salvar Perfil"):
-        st.success(f"Perfil '{nome_perfil}' salvo com sucesso! (Função visual no MVP)")
-
-# --- ABA 6: EXPORTAÇÃO & CHECK-STEP (A Lógica dos 10 em 10) ---
-with tab6:
-    st.header("Revisão Crítica e Exportação")
-    df_final = st.session_state.df_trabalho
-    
-    if df_final.empty:
-        st.warning("Planilha vazia. Preencha os dados antes de exportar.")
-    else:
-        st.write("Para garantir a segurança, valide os lotes de produtos antes de liberar o download.")
+    # --- ABA 2: EDITOR DE PLANILHA ---
+    with tab_editor:
+        st.header("Edição Live")
+        st.caption("Colunas em destaque são as editáveis (S)")
         
-        tamanho_bloco = 10
-        total_blocos = math.ceil(len(df_final) / tamanho_bloco)
+        # Formatação para destacar colunas editáveis
+        df_editavel = st.data_editor(
+            st.session_state.df_principal,
+            use_container_width=True,
+            num_rows="dynamic",
+            disabled=[c for c in st.session_state.df_principal.columns if c not in COLUNAS_EDITAVEIS],
+            key="main_editor"
+        )
+        st.session_state.df_principal = df_editavel
+
+    # --- ABA 3: PROCV / DE-PARA ---
+    with tab_procv:
+        st.header("Merge com Base Externa")
+        ext_file = st.file_uploader("Suba a planilha do cliente", type=["xlsx", "csv"], key="ext")
         
-        # Loop para criar os blocos de validação
-        for i in range(total_blocos):
-            inicio = i * tamanho_bloco
-            fim = inicio + tamanho_bloco
-            bloco_df = df_final.iloc[inicio:fim]
+        if ext_file:
+            df_ext = pd.read_csv(ext_file) if ext_file.name.endswith('.csv') else pd.read_excel(ext_file)
+            col_chave_cliente = st.selectbox("Coluna SKU do Cliente", df_ext.columns)
+            col_alvo_sistema = st.selectbox("Coluna SKU do Sistema", st.session_state.df_principal.columns)
             
-            with st.expander(f"📦 Bloco {i+1} de {total_blocos} (Produtos {inicio+1} a {min(fim, len(df_final))})", expanded=(i not in st.session_state.blocos_validados)):
-                st.dataframe(bloco_df[['SKU', 'Nome']], use_container_width=True)
+            if st.button("Executar De-Para"):
+                # Simulação de PROCV
+                df_merge = pd.merge(
+                    st.session_state.df_principal, 
+                    df_ext, 
+                    left_on=col_alvo_sistema, 
+                    right_on=col_chave_cliente, 
+                    how="left", 
+                    suffixes=('', '_ext')
+                )
+                # Atualiza campos editáveis se encontrados na planilha externa
+                for col in COLUNAS_EDITAVEIS:
+                    if f"{col}_ext" in df_merge.columns:
+                        df_merge[col] = df_merge[f"{col}_ext"].fillna(df_merge[col])
                 
-                # Checkbox de validação
-                check = st.checkbox(f"Confirmo que revisei os SKUs do Bloco {i+1}", key=f"check_{i}")
-                
-                if check and i not in st.session_state.blocos_validados:
-                    st.session_state.blocos_validados.append(i)
-                elif not check and i in st.session_state.blocos_validados:
-                    st.session_state.blocos_validados.remove(i)
+                st.session_state.df_principal = df_merge[st.session_state.df_principal.columns]
+                st.success("Dados mesclados com sucesso!")
 
-        # Barra de progresso geral
-        progresso = len(st.session_state.blocos_validados) / total_blocos if total_blocos > 0 else 0
-        st.progress(progresso, text=f"Status de Revisão: {len(st.session_state.blocos_validados)}/{total_blocos} blocos confirmados.")
+    # --- ABA 4: VALIDAÇÃO & ERROS ---
+    with tab_erros:
+        st.header("Relatório de Consistência")
+        df = st.session_state.df_principal
+        erros = []
 
-        # Liberação do Download
-        if len(st.session_state.blocos_validados) == total_blocos and total_blocos > 0:
-            st.success("Tudo aprovado! Arquivo liberado para download.")
+        for idx, row in df.iterrows():
+            # Erro 1: Campos Vazios
+            vazios = [col for col in COLUNAS_EDITAVEIS if pd.isna(row[col]) or str(row[col]).strip() == ""]
+            if vazios:
+                erros.append({"Linha": idx, "Erro": f"Campos obrigatórios vazios: {', '.join(vazios)}", "Severidade": "Alta"})
             
-            # Prepara o Excel em memória
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df_final.to_excel(writer, index=False, sheet_name='Base_Validada')
-            
-            # Botão de Download
-            st.download_button(
-                label="⬇️ Baixar Planilha Final (.xlsx)",
-                data=buffer.getvalue(),
-                file_name=f"importacao_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
-            st.download_button(
-                label="📝 Baixar Log de Auditoria (.txt)",
-                data=f"Auditoria gerada em {datetime.now()}\nTotal Itens: {len(df_final)}\nBlocos revisados: {total_blocos}\nStatus: 100% Validado pelo Cliente.",
-                file_name="log_auditoria.txt",
-                mime="text/plain"
-            )
+            # Erro 2: EAN Inválido (apenas dígitos)
+            if not str(row["EAN"]).isdigit() and not pd.isna(row["EAN"]):
+                erros.append({"Linha": idx, "Erro": "EAN deve conter apenas números", "Severidade": "Média"})
+
+        if erros:
+            df_erros = pd.DataFrame(erros)
+            st.table(df_erros)
+            st.info("💡 Dica: Localize a 'Linha' na aba Editor para corrigir.")
         else:
-            st.error("Valide todos os blocos acima marcando os checkboxes para liberar o download.")
+            st.success("Nenhum erro crítico detectado.")
+
+    # --- ABA 5: EXPORTAÇÃO (QA GATE) ---
+    with tab_export:
+        st.header("QA Gate - Revisão Obrigatória")
+        df_final = st.session_state.df_principal
+        
+        tamanho_lote = 10
+        total_lotes = math.ceil(len(df_final) / tamanho_lote)
+        
+        st.write(f"Total de Produtos: {len(df_final)} | Lotes para revisão: {total_lotes}")
+        
+        lote_atual = st.number_input("Visualizar Lote", min_value=1, max_value=total_lotes, step=1)
+        
+        inicio = (lote_atual - 1) * tamanho_lote
+        fim = inicio + tamanho_lote
+        preview_lote = df_final.iloc[inicio:fim]
+        
+        st.dataframe(preview_lote[COLUNAS_EDITAVEIS + ["SKU"]], use_container_width=True)
+        
+        col_ok, col_cor = st.columns(2)
+        if col_ok.button(f"Marcar Lote {lote_atual} como OK"):
+            st.session_state.qa_checks[lote_atual] = "OK"
+        if col_cor.button(f"Marcar Lote {lote_atual} para CORREÇÃO"):
+            st.session_state.qa_checks[lote_atual] = "CORRIGIR"
+
+        # Progresso
+        revisados = len(st.session_state.qa_checks)
+        st.progress(revisados / total_lotes)
+        st.write(f"Revisão: {revisados}/{total_lotes} lotes.")
+
+        if revisados == total_lotes:
+            st.success("✅ Todos os lotes revisados!")
+            
+            # Gerar Arquivos
+            csv_data = df_final.to_csv(index=False).encode('utf-8')
+            
+            # Gerar Log
+            log_content = f"""
+            === LOG DE AUDITORIA QA ===
+            Sessão: {st.session_state.session_id}
+            Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+            Hash SHA256: {calcular_hash(df_final)}
+            Resultados por Lote: {st.session_state.qa_checks}
+            ==========================
+            """
+            
+            st.download_button("Baixar Planilha Final", data=csv_data, file_name=f"importacao_{st.session_state.session_id}.csv")
+            st.download_button("Baixar Log de Auditoria (QA)", data=log_content, file_name=f"{st.session_state.session_id}_qa_log.txt")
+        else:
+            st.warning("A exportação será liberada após a revisão de todos os lotes.")
+
+else:
+    st.info("Aguardando upload da planilha do sistema no menu lateral.")
