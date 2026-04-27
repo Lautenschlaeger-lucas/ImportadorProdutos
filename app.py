@@ -65,9 +65,13 @@ html, body, .stApp {
     max-width: 1440px !important;
 }
 
-/* Texto base — apenas onde necessário */
-p, span, label, div {
+/* Texto base — protegendo os ícones internos do Streamlit */
+p, label {
     font-family: var(--font) !important;
+}
+/* Evita sobrescrever a fonte Material Symbols do Streamlit */
+span:not(.material-symbols-rounded), div:not(.material-symbols-rounded) {
+    font-family: var(--font);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -595,7 +599,6 @@ def normalizar_nome_col(nome: str) -> str:
     nome = re.sub(r'\s*\([A-Z]\)\s*$', '', str(nome))
     return nome.strip().lower()
 
-
 def resolver_coluna(df: pd.DataFrame, nome_desejado: str, criar_se_nao_existir: bool = False) -> str:
     alvo = normalizar_nome_col(nome_desejado)
     for col in df.columns:
@@ -606,16 +609,13 @@ def resolver_coluna(df: pd.DataFrame, nome_desejado: str, criar_se_nao_existir: 
         return nome_desejado
     return nome_desejado
 
-
 def resolver_colunas_editaveis(df: pd.DataFrame) -> list:
     return [resolver_coluna(df, c, criar_se_nao_existir=True) for c in COLUNAS_EDITAVEIS]
-
 
 def calcular_hash(df: pd.DataFrame) -> str:
     return hashlib.sha256(
         pd.util.hash_pandas_object(df, index=True).values.tobytes()
     ).hexdigest()
-
 
 def normalizar_ean(valor) -> str:
     if pd.isna(valor):
@@ -625,7 +625,6 @@ def normalizar_ean(valor) -> str:
     except (ValueError, OverflowError):
         return str(valor).strip()
 
-
 def contar_vazios(df: pd.DataFrame, coluna: str) -> int:
     if coluna not in df.columns:
         return len(df)
@@ -633,7 +632,6 @@ def contar_vazios(df: pd.DataFrame, coluna: str) -> int:
         df[coluna].isna() |
         df[coluna].astype(str).str.strip().isin(["", "None", "nan"])
     ).sum()
-
 
 def validar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     erros = []
@@ -678,17 +676,14 @@ def validar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         columns=["Nº Linha", "Campo", "Valor Atual", "Descrição", "Severidade"]
     )
 
-
 def resolver_colunas_obrigatorias(df: pd.DataFrame) -> list:
     return [resolver_coluna(df, c) for c in COLUNAS_OBRIGATORIAS]
-
 
 def garantir_colunas(df: pd.DataFrame) -> pd.DataFrame:
     for col in COLUNAS_EDITAVEIS:
         if col not in df.columns:
             df[col] = ""
     return df
-
 
 def ler_arquivo(file) -> pd.DataFrame:
     try:
@@ -706,16 +701,12 @@ def ler_arquivo(file) -> pd.DataFrame:
         st.error(f"❌ Erro ao ler arquivo: {str(e)}")
         st.stop()
 
-
 def _chave_composta(df: pd.DataFrame, col_id: str, col_var: str | None) -> pd.Series:
-    """Gera coluna de chave: 'id||variacao' se variacao preenchida, senão só 'id'."""
     base = df[col_id].astype(str).str.strip()
     if col_var is None or col_var not in df.columns:
         return base
     var = df[col_var].astype(str).str.strip().replace({"nan": "", "None": "", "0": ""})
-    # Onde variação está preenchida: id||var; caso contrário só id
     return base.where(var == "", base + "||" + var)
-
 
 def executar_merge_procv(
     df_sistema: pd.DataFrame,
@@ -728,9 +719,6 @@ def executar_merge_procv(
     col_var_sistema: str | None = None,
     col_var_cliente: str | None = None,
 ) -> Tuple[pd.DataFrame, dict]:
-    """
-    Merge com suporte a chave composta (ID Anúncio + ID Variação) - VERSÃO CORRIGIDA.
-    """
 
     _LOOKUP = "__sku_lookup__"
 
@@ -738,9 +726,7 @@ def executar_merge_procv(
     df_s = df_sistema.copy()
     df_c = df_cliente.copy()
 
-    # ─────────────────────────────────────────────────────────────
-    # 1. Garantir que colunas de ID são STRING (evita erro de dtype)
-    # ─────────────────────────────────────────────────────────────
+    # 1. Garantir que colunas de ID são STRING
     df_s[col_id_sistema] = df_s[col_id_sistema].fillna("").astype(str).str.strip()
     df_c[col_id_cliente] = df_c[col_id_cliente].fillna("").astype(str).str.strip()
 
@@ -749,9 +735,7 @@ def executar_merge_procv(
     if col_var_cliente and col_var_cliente in df_c.columns:
         df_c[col_var_cliente] = df_c[col_var_cliente].fillna("").astype(str).str.strip()
 
-    # ─────────────────────────────────────────────────────────────
     # 2. Construir chave composta no SISTEMA
-    # ─────────────────────────────────────────────────────────────
     def build_key(row, id_col, var_col):
         id_val = row[id_col]
         if var_col and var_col in row and row[var_col] and row[var_col] != "":
@@ -762,19 +746,15 @@ def executar_merge_procv(
         lambda row: build_key(row, col_id_sistema, col_var_sistema), axis=1
     )
 
-    # ─────────────────────────────────────────────────────────────
-    # 3. Construir lookup no CLIENTE (prioridade composta, fallback simples)
-    # ─────────────────────────────────────────────────────────────
+    # 3. Construir lookup no CLIENTE
     entradas = []
 
-    # 3a. Chave composta (ID + Variação)
     if col_var_cliente and col_var_cliente in df_c.columns:
         composta = df_c[df_c[col_var_cliente] != ""].copy()
         if not composta.empty:
             composta["__chave_c__"] = composta[col_id_cliente] + "||" + composta[col_var_cliente]
             entradas.append(composta[["__chave_c__", col_sku_cliente]])
 
-    # 3b. Chave simples (apenas ID) para TODAS as linhas
     simples = df_c.copy()
     simples["__chave_c__"] = simples[col_id_cliente]
     entradas.append(simples[["__chave_c__", col_sku_cliente]])
@@ -783,12 +763,9 @@ def executar_merge_procv(
     df_lookup = df_lookup.drop_duplicates(subset=["__chave_c__"])
     df_lookup = df_lookup.rename(columns={col_sku_cliente: _LOOKUP})
 
-    # Garantir que a coluna de lookup é string
     df_lookup[_LOOKUP] = df_lookup[_LOOKUP].fillna("").astype(str).str.strip()
 
-    # ─────────────────────────────────────────────────────────────
     # 4. Merge
-    # ─────────────────────────────────────────────────────────────
     df_resultado = df_s.merge(
         df_lookup,
         left_on="__chave_s__",
@@ -797,14 +774,12 @@ def executar_merge_procv(
         suffixes=("", "_drop")
     )
 
-    # Garantir coluna SKU destino
     if col_sku_sistema not in df_resultado.columns:
         df_resultado[col_sku_sistema] = ""
 
     df_resultado[col_sku_sistema] = df_resultado[col_sku_sistema].fillna("").astype(str)
     df_resultado[_LOOKUP] = df_resultado[_LOOKUP].fillna("").astype(str)
 
-    # Aplicar regra de preenchimento
     if sobrescrever:
         df_resultado[col_sku_sistema] = df_resultado[_LOOKUP].where(
             df_resultado[_LOOKUP] != "", df_resultado[col_sku_sistema]
@@ -819,16 +794,24 @@ def executar_merge_procv(
         if col in df_resultado.columns:
             df_resultado.drop(columns=[col], inplace=True)
 
-    # Estatísticas
+    # Estatísticas precisas
     total = len(df_resultado)
-    preenchidos = int((df_resultado[col_sku_sistema] != "").sum())
-    nao_encontrados = total - preenchidos
+    sku_antes = df_s[col_sku_sistema].fillna("").astype(str)
+    sku_depois = df_resultado[col_sku_sistema].fillna("").astype(str)
+    
+    modificados = int((sku_antes != sku_depois).sum())
+    total_preenchidos = int((sku_depois != "").sum())
+    
+    vazios_antes = sku_antes == ""
+    vazios_depois = sku_depois == ""
+    nao_encontrados = int((vazios_antes & vazios_depois).sum())
 
     stats = {
         "total_linhas": total,
-        "preenchidos": preenchidos,
+        "modificados": modificados,
+        "total_preenchidos": total_preenchidos,
         "nao_encontrados": nao_encontrados,
-        "taxa_sucesso": f"{(preenchidos / total * 100):.1f}%" if total > 0 else "N/A",
+        "taxa_sucesso": f"{(total_preenchidos / total * 100):.1f}%" if total > 0 else "N/A",
     }
 
     return df_resultado, stats
@@ -1102,21 +1085,19 @@ with tab_busca:
 
 
 # ============================================================
-# ABA 2 — EDITOR AVANÇADO  (INLINE EDITING CORRIGIDO)
+# ABA 2 — EDITOR AVANÇADO
 # ============================================================
 with tab_editor:
     st.header("📝 Editor de Planilha")
 
     df_atual = st.session_state.df_principal
 
-    # Identificar colunas editáveis que realmente existem no df
     colunas_edit_reais = []
     for c in COLUNAS_EDITAVEIS:
         col_real = resolver_coluna(df_atual, c)
         if col_real in df_atual.columns:
             colunas_edit_reais.append(col_real)
 
-    # Colunas bloqueadas = todas as que NÃO estão na lista editável
     colunas_bloqueadas = [c for c in df_atual.columns if c not in colunas_edit_reais]
 
     col_info, col_stats = st.columns([2, 1])
@@ -1127,23 +1108,14 @@ with tab_editor:
         if st.session_state.historico_alteracoes:
             st.info(f"🕒 {len(st.session_state.historico_alteracoes)} alterações nesta sessão")
 
-    # -------------------------------------------------------
-    # Preparar DataFrame para o editor:
-    # - Colunas editáveis de texto: converter para str (evita conflito de tipo)
-    # - "Kit quantidade": manter numérico se possível
-    # - Colunas bloqueadas: deixar como estão (somente leitura)
-    # -------------------------------------------------------
     df_editor_input = df_atual.copy()
-
     col_kit_real = resolver_coluna(df_editor_input, "Kit quantidade")
     col_ean_real = resolver_coluna(df_editor_input, "EAN")
 
     for col in colunas_edit_reais:
         if col == col_kit_real:
-            # Tentar converter para numérico; NaN vira 0
             df_editor_input[col] = pd.to_numeric(df_editor_input[col], errors='coerce').fillna(0).astype(int)
         else:
-            # Converter para string limpa
             df_editor_input[col] = (
                 df_editor_input[col]
                 .fillna("")
@@ -1153,7 +1125,6 @@ with tab_editor:
                 .replace("None", "")
             )
 
-    # column_config apenas para colunas editáveis com tipos bem definidos
     column_config = {}
     for col in colunas_edit_reais:
         if col == col_kit_real:
@@ -1167,7 +1138,6 @@ with tab_editor:
         else:
             column_config[col] = st.column_config.TextColumn(col)
 
-    # DATA EDITOR
     df_editado = st.data_editor(
         df_editor_input,
         use_container_width=True,
@@ -1222,7 +1192,6 @@ with tab_procv:
 
     st.divider()
 
-    # Upload da planilha fonte (cliente)
     uploaded_cliente = st.file_uploader(
         "📤 **Planilha de Origem (Cliente)**",
         type=["xlsx", "csv"],
@@ -1230,7 +1199,6 @@ with tab_procv:
         help="Arquivo que contém a coluna com os SKUs corretos"
     )
 
-    # Inicializar estado do último PROCV
     if "ultimo_procv_stats" not in st.session_state:
         st.session_state.ultimo_procv_stats = None
     if "ultimo_procv_nao_encontrados" not in st.session_state:
@@ -1271,7 +1239,6 @@ with tab_procv:
 
         st.divider()
 
-        # Opcional: ID Variação
         with st.expander("🔀 Chave de Variação (opcional)"):
             st.caption("Use se precisar diferenciar variações de um mesmo produto")
             cols_none = ["— não usar —"] + list(st.session_state.df_principal.columns)
@@ -1283,7 +1250,6 @@ with tab_procv:
             col_var_sistema = None if col_var_sistema == "— não usar —" else col_var_sistema
             col_var_cliente = None if col_var_cliente == "— não usar —" else col_var_cliente
 
-        # Resumo visual
         st.info(
             f"🔁 **Mapeamento:**\n\n"
             f"`{col_id_sistema}` (Destino) ↔ `{col_id_cliente}` (Origem)\n\n"
@@ -1292,7 +1258,6 @@ with tab_procv:
 
         sobrescrever = st.checkbox("🔄 Sobrescrever SKUs já preenchidos no destino", value=False)
 
-        # Botão para executar PROCV
         if st.button("🚀 Executar PROCV", type="primary", use_container_width=True):
             with st.spinner("Processando..."):
                 try:
@@ -1308,16 +1273,13 @@ with tab_procv:
                         col_var_cliente=col_var_cliente,
                     )
 
-                    # Salvar no session_state
                     st.session_state.df_principal = df_novo
                     st.session_state.df_erros_cache = None
                     st.session_state.ultimo_procv_stats = stats
                     
-                    # ---> CORREÇÃO 1: Limpar o estado interno do editor para ele não "segurar" o dado velho
                     if "editor_principal" in st.session_state:
                         del st.session_state["editor_principal"]
                     
-                    # Guardar IDs não encontrados para exibição
                     if stats['nao_encontrados'] > 0:
                         cols_id = [col_id_sistema]
                         if col_var_sistema:
@@ -1331,19 +1293,13 @@ with tab_procv:
                     else:
                         st.session_state.ultimo_procv_nao_encontrados = None
                     
-                    # ---> CORREÇÃO 2: Trocado de st.success para st.toast (pois o rerun faria o success sumir instantaneamente)
                     st.toast("✅ PROCV executado com sucesso!", icon="✅")
-                    
-                    # ---> CORREÇÃO 3: Forçar o recarregamento de cima a baixo
                     st.rerun()
                     
                 except Exception as e:
                     st.error(f"❌ Erro no PROCV: {str(e)}")
                     st.session_state.ultimo_procv_stats = None
 
-        # ─────────────────────────────────────────────────────────────
-        # EXIBIR RESULTADOS (mesmo após rerun)
-        # ─────────────────────────────────────────────────────────────
         if st.session_state.ultimo_procv_stats:
             stats = st.session_state.ultimo_procv_stats
             
@@ -1352,17 +1308,16 @@ with tab_procv:
             
             r1, r2, r3 = st.columns(3)
             with r1:
-                st.metric("✅ SKUs Preenchidos", f"{stats['preenchidos']:,}")
+                st.metric("🔄 Atualizados (Nesta ação)", f"{stats['modificados']:,}")
             with r2:
-                st.metric("⚠️ Não Encontrados", f"{stats['nao_encontrados']:,}")
+                st.metric("✅ Total Preenchidos", f"{stats['total_preenchidos']:,}")
             with r3:
-                st.metric("📊 Taxa de Sucesso", stats['taxa_sucesso'])
+                st.metric("⚠️ Ainda Vazios", f"{stats['nao_encontrados']:,}")
             
-            # Gráfico de pizza
             if stats['total_linhas'] > 0:
                 fig = go.Figure(data=[go.Pie(
-                    labels=['Preenchidos', 'Não Encontrados'],
-                    values=[stats['preenchidos'], stats['nao_encontrados']],
+                    labels=['Preenchidos', 'Ainda Vazios'],
+                    values=[stats['total_preenchidos'], stats['nao_encontrados']],
                     hole=0.4,
                     marker_colors=['#059669', '#f59e0b'],
                     textinfo='label+percent',
@@ -1375,7 +1330,6 @@ with tab_procv:
                 )
                 st.plotly_chart(fig, use_container_width=True)
             
-            # Exibir não encontrados
             if st.session_state.ultimo_procv_nao_encontrados is not None and len(st.session_state.ultimo_procv_nao_encontrados) > 0:
                 with st.expander(f"📋 IDs não encontrados ({len(st.session_state.ultimo_procv_nao_encontrados)})"):
                     st.dataframe(
@@ -1385,7 +1339,6 @@ with tab_procv:
                     )
                     st.caption("⚠️ Esses IDs não tinham correspondência na planilha do cliente")
             
-            # Botão para limpar resultados (opcional)
             if st.button("🗑️ Limpar resultados", use_container_width=True):
                 st.session_state.ultimo_procv_stats = None
                 st.session_state.ultimo_procv_nao_encontrados = None
@@ -1393,11 +1346,10 @@ with tab_procv:
     
     else:
         st.info("👈 **Comece fazendo o upload da planilha do cliente (origem)**")
-        
-        # Limpar resultados antigos quando não há arquivo
         if st.session_state.ultimo_procv_stats is not None:
             st.session_state.ultimo_procv_stats = None
             st.session_state.ultimo_procv_nao_encontrados = None
+
 
 # ============================================================
 # ABA 4 — VALIDAÇÃO & ERROS
@@ -1673,7 +1625,6 @@ with tab_export:
                 mime="text/plain",
                 use_container_width=True
             )
-
 
 # --- RODAPÉ ---
 st.markdown("---")
