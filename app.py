@@ -7,483 +7,514 @@ from datetime import datetime
 import math
 import json
 import re
-from typing import Optional, Tuple
+from typing import Tuple
 import plotly.graph_objects as go
 import plotly.express as px
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="Importador Pro v4 | Enterprise",
+    page_title="Importador Pro v5 | Enterprise",
     layout="wide",
     page_icon="🚀",
     initial_sidebar_state="expanded"
 )
 
-# --- CSS CORRIGIDO - FORÇA TEMA CLARO ---
+# --- CSS LIMPO E REFINADO ---
 st.markdown("""
-    <style>
-    /* ============================================
-       RESET AGRESSIVO - FORÇA TEMA CLARO
-       ============================================ */
-    
-    /* Força fundo branco em toda a aplicação */
-    .stApp {
-        background-color: #ffffff !important;
-    }
-    
-    /* Corrige fundo preto do main container */
-    .main .block-container {
-        background-color: #ffffff !important;
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 1400px;
-    }
-    
-    /* Reseta cores de texto globalmente */
-    .stApp, .stApp * {
-        color: #111827 !important;
-    }
-    
-    /* ============================================
-       SIDEBAR - CORREÇÕES CRÍTICAS
-       ============================================ */
-    
-    /* Força fundo claro na sidebar */
-    section[data-testid="stSidebar"] {
-        background-color: #f8fafc !important;
-        background-image: none !important;
-    }
-    
-    /* Corrige containers internos da sidebar */
-    section[data-testid="stSidebar"] > div {
-        background-color: #f8fafc !important;
-    }
-    
-    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-        background-color: transparent !important;
-    }
-    
-    /* Sidebar header customizado */
-    .sidebar-header {
-        background-color: #2563eb !important;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-    }
-    
-    .sidebar-header h2 {
-        color: #ffffff !important;
-        font-size: 1.3rem;
-        margin: 0;
-    }
-    
-    .sidebar-header p {
-        color: rgba(255, 255, 255, 0.8) !important;
-        font-size: 0.8rem;
-        margin: 0.2rem 0 0 0;
-    }
-    
-    /* ============================================
-       INPUTS E WIDGETS - CORREÇÕES
-       ============================================ */
-    
-    /* Search box e text inputs */
-    .stTextInput input, 
-    .stTextInput textarea,
-    [data-baseweb="input"],
-    [data-baseweb="input"] input {
-        background-color: #ffffff !important;
-        color: #111827 !important;
-        border: 1px solid #d1d5db !important;
-        border-radius: 8px !important;
-    }
-    
-    .stTextInput input:focus,
-    [data-baseweb="input"]:focus {
-        border-color: #2563eb !important;
-        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1) !important;
-    }
-    
-    /* Selectbox */
-    .stSelectbox [data-baseweb="select"],
-    [data-baseweb="select"] {
-        background-color: #ffffff !important;
-    }
-    
-    .stSelectbox [data-baseweb="select"] > div,
-    [data-baseweb="select"] > div {
-        background-color: #ffffff !important;
-        color: #111827 !important;
-        border: 1px solid #d1d5db !important;
-        border-radius: 8px !important;
-    }
-    
-    /* Dropdown menu */
-    [data-baseweb="popover"],
-    [data-baseweb="menu"],
-    ul[role="listbox"] {
-        background-color: #ffffff !important;
-    }
-    
-    ul[role="listbox"] li {
-        background-color: #ffffff !important;
-        color: #111827 !important;
-    }
-    
-    ul[role="listbox"] li:hover {
-        background-color: #f3f4f6 !important;
-    }
-    
-    /* File uploader */
-    [data-testid="stFileUploader"] {
-        background-color: #ffffff !important;
-        border-radius: 8px !important;
-    }
-    
-    [data-testid="stFileUploaderDropzone"] {
-        background-color: #ffffff !important;
-        border: 2px dashed #d1d5db !important;
-        border-radius: 8px !important;
-    }
-    
-    [data-testid="stFileUploaderDropzone"] * {
-        color: #374151 !important;
-    }
-    
-    /* ============================================
-       BOTÕES
-       ============================================ */
-    
-    /* Botão primário */
-    .stButton > button[kind="primary"] {
-        background-color: #2563eb !important;
-        color: #ffffff !important;
-        border: none !important;
-    }
-    
-    .stButton > button[kind="primary"]:hover {
-        background-color: #1d4ed8 !important;
-    }
-    
-    /* Botão secundário */
-    .stButton > button[kind="secondary"] {
-        background-color: #ffffff !important;
-        color: #374151 !important;
-        border: 1px solid #d1d5db !important;
-    }
-    
-    .stButton > button[kind="secondary"]:hover {
-        background-color: #f3f4f6 !important;
-        border-color: #9ca3af !important;
-    }
-    
-    /* Todos os botões */
-    .stButton > button {
-        border-radius: 8px !important;
-        font-weight: 500 !important;
-        transition: all 0.2s !important;
-    }
-    
-    /* ============================================
-       TABELAS E DATAFRAMES
-       ============================================ */
-    
-    /* Cabeçalho da tabela */
-    [data-testid="stTable"] thead th,
-    .stDataFrame thead th,
-    [data-testid="stDataFrame"] thead th {
-        background-color: #f9fafb !important;
-        color: #374151 !important;
-        font-weight: 600 !important;
-        border-bottom: 2px solid #e5e7eb !important;
-    }
-    
-    /* Células da tabela */
-    [data-testid="stTable"] tbody td,
-    .stDataFrame tbody td,
-    [data-testid="stDataFrame"] tbody td {
-        background-color: #ffffff !important;
-        color: #111827 !important;
-        border-bottom: 1px solid #f3f4f6 !important;
-    }
-    
-    /* Linhas alternadas */
-    .stDataFrame tbody tr:nth-child(even) td,
-    [data-testid="stDataFrame"] tbody tr:nth-child(even) td {
-        background-color: #fafbfc !important;
-    }
-    
-    /* Hover na linha */
-    .stDataFrame tbody tr:hover td,
-    [data-testid="stDataFrame"] tbody tr:hover td {
-        background-color: #f0f4ff !important;
-    }
-    
-    /* ============================================
-       DATA EDITOR
-       ============================================ */
-    
-    [data-testid="stDataEditor"] {
-        background-color: #ffffff !important;
-        border-radius: 12px !important;
-        border: 1px solid #e5e7eb !important;
-    }
-    
-    [data-testid="stDataEditor"] * {
-        color: #111827 !important;
-    }
-    
-    /* ============================================
-       EXPANDERS
-       ============================================ */
-    
-    details {
-        background-color: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-        border-radius: 10px !important;
-        margin-bottom: 0.5rem !important;
-    }
-    
-    details summary {
-        background-color: #ffffff !important;
-        color: #374151 !important;
-        font-weight: 600 !important;
-        padding: 0.8rem 1rem !important;
-        border-radius: 10px !important;
-        cursor: pointer !important;
-    }
-    
-    details[open] summary {
-        border-bottom: 1px solid #e5e7eb !important;
-        border-radius: 10px 10px 0 0 !important;
-    }
-    
-    details > div {
-        padding: 1rem !important;
-        background-color: #ffffff !important;
-    }
-    
-    /* ============================================
-       TABS
-       ============================================ */
-    
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #f3f4f6 !important;
-        padding: 6px !important;
-        border-radius: 10px !important;
-        gap: 4px !important;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent !important;
-        color: #6b7280 !important;
-        border-radius: 8px !important;
-        padding: 8px 20px !important;
-        font-weight: 500 !important;
-    }
-    
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #ffffff !important;
-        color: #2563eb !important;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background-color: #ffffff !important;
-        color: #2563eb !important;
-        font-weight: 600 !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
-    }
-    
-    /* ============================================
-       MÉTRICAS E CARDS
-       ============================================ */
-    
-    /* st.metric */
-    [data-testid="stMetricValue"] {
-        color: #111827 !important;
-        font-size: 1.5rem !important;
-        font-weight: 600 !important;
-    }
-    
-    [data-testid="stMetricLabel"] {
-        color: #6b7280 !important;
-    }
-    
-    /* Cards customizados */
-    .card {
-        background: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-        border-radius: 10px !important;
-        padding: 1.2rem !important;
-        transition: box-shadow 0.2s !important;
-    }
-    
-    .card:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-    }
-    
-    .metric-card {
-        text-align: center !important;
-    }
-    
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #2563eb, #7c3aed);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .metric-label {
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #6b7280 !important;
-        margin-top: 0.3rem;
-    }
-    
-    /* ============================================
-       APP HEADER
-       ============================================ */
-    
-    .app-header {
-        background: linear-gradient(135deg, #1e293b, #334155) !important;
-        padding: 1.5rem 2rem !important;
-        border-radius: 12px !important;
-        margin-bottom: 2rem !important;
-    }
-    
-    .app-header h1 {
-        color: #ffffff !important;
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin: 0;
-    }
-    
-    .app-header p {
-        color: #94a3b8 !important;
-        margin: 0.3rem 0 0 0;
-        font-size: 0.9rem;
-    }
-    
-    /* ============================================
-       PROGRESS BAR
-       ============================================ */
-    
-    .stProgress > div {
-        background-color: #e5e7eb !important;
-    }
-    
-    .stProgress > div > div {
-        background: linear-gradient(90deg, #2563eb, #7c3aed) !important;
-        border-radius: 10px !important;
-    }
-    
-    /* ============================================
-       MENSAGENS E ALERTAS
-       ============================================ */
-    
-    .stAlert {
-        border-radius: 10px !important;
-    }
-    
-    /* Success */
-    .stAlert[kind="success"] {
-        background-color: #f0fdf4 !important;
-        border-color: #86efac !important;
-        color: #166534 !important;
-    }
-    
-    /* Warning */
-    .stAlert[kind="warning"] {
-        background-color: #fefce8 !important;
-        border-color: #fde047 !important;
-        color: #854d0e !important;
-    }
-    
-    /* Error */
-    .stAlert[kind="error"] {
-        background-color: #fef2f2 !important;
-        border-color: #fca5a5 !important;
-        color: #991b1b !important;
-    }
-    
-    /* Info */
-    .stAlert[kind="info"] {
-        background-color: #eff6ff !important;
-        border-color: #93c5fd !important;
-        color: #1e40af !important;
-    }
-    
-    /* ============================================
-       TOASTS
-       ============================================ */
-    
-    [data-testid="stToast"] {
-        background-color: #ffffff !important;
-        color: #111827 !important;
-        border: 1px solid #e5e7eb !important;
-        border-radius: 10px !important;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
-    }
-    
-    /* ============================================
-       SPINNER
-       ============================================ */
-    
-    .stSpinner > div {
-        border-color: #2563eb !important;
-    }
-    
-    /* ============================================
-       SCROLLBARS
-       ============================================ */
-    
-    ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #f3f4f6;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #d1d5db;
-        border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: #9ca3af;
-    }
-    
-    /* ============================================
-       PLOTLY CHARTS
-       ============================================ */
-    
-    .js-plotly-plot .plotly .main-svg {
-        background: #ffffff !important;
-    }
-    
-    /* ============================================
-       HR / DIVIDERS
-       ============================================ */
-    
-    hr {
-        border-color: #e5e7eb !important;
-    }
-    
-    /* ============================================
-       RODAPÉ
-       ============================================ */
-    
-    footer {
-        visibility: hidden;
-    }
-    
-    </style>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+/* =============================================
+   VARIÁVEIS GLOBAIS
+   ============================================= */
+:root {
+    --bg-primary:    #f8f9fb;
+    --bg-card:       #ffffff;
+    --bg-sidebar:    #0f172a;
+    --text-primary:  #0f172a;
+    --text-secondary:#64748b;
+    --text-muted:    #94a3b8;
+    --border:        #e2e8f0;
+    --accent:        #2563eb;
+    --accent-hover:  #1d4ed8;
+    --accent-light:  #eff6ff;
+    --success:       #059669;
+    --warning:       #d97706;
+    --danger:        #dc2626;
+    --radius-sm:     6px;
+    --radius-md:     10px;
+    --radius-lg:     14px;
+    --shadow-sm:     0 1px 3px rgba(0,0,0,0.07);
+    --shadow-md:     0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg:     0 8px 24px rgba(0,0,0,0.10);
+    --font:          'DM Sans', sans-serif;
+    --font-mono:     'DM Mono', monospace;
+}
+
+/* =============================================
+   BASE - SEM FORÇAR CORES EM TUDO
+   ============================================= */
+html, body, .stApp {
+    font-family: var(--font) !important;
+    background-color: var(--bg-primary) !important;
+}
+
+.main .block-container {
+    background-color: var(--bg-primary) !important;
+    padding: 1.5rem 2rem 3rem !important;
+    max-width: 1440px !important;
+}
+
+/* Texto base — apenas onde necessário */
+p, span, label, div {
+    font-family: var(--font) !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font) !important;
+    color: var(--text-primary) !important;
+}
+
+/* =============================================
+   SIDEBAR
+   ============================================= */
+section[data-testid="stSidebar"] {
+    background-color: var(--bg-sidebar) !important;
+}
+
+section[data-testid="stSidebar"] > div {
+    background-color: var(--bg-sidebar) !important;
+}
+
+/* Textos na sidebar — branco */
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] div,
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: #e2e8f0 !important;
+}
+
+/* Métricas na sidebar */
+section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+    color: #ffffff !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+    color: #94a3b8 !important;
+    font-size: 0.7rem !important;
+}
+
+/* Divider na sidebar */
+section[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,0.1) !important;
+}
+
+/* Caption na sidebar */
+section[data-testid="stSidebar"] .stCaption,
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+    color: #94a3b8 !important;
+}
+
+/* File uploader na sidebar */
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+    background-color: rgba(255,255,255,0.05) !important;
+    border: 2px dashed rgba(255,255,255,0.2) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] * {
+    color: #cbd5e1 !important;
+}
+
+/* Botões na sidebar */
+section[data-testid="stSidebar"] .stButton > button {
+    background-color: rgba(255,255,255,0.07) !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: rgba(255,255,255,0.12) !important;
+    border-color: rgba(255,255,255,0.25) !important;
+}
+
+/* Expander na sidebar */
+section[data-testid="stSidebar"] details {
+    background-color: rgba(255,255,255,0.04) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+section[data-testid="stSidebar"] details summary {
+    color: #cbd5e1 !important;
+    font-size: 0.85rem !important;
+}
+
+section[data-testid="stSidebar"] details p,
+section[data-testid="stSidebar"] details li,
+section[data-testid="stSidebar"] details strong {
+    color: #94a3b8 !important;
+    font-size: 0.82rem !important;
+}
+
+/* =============================================
+   INPUTS — ÁREA PRINCIPAL (não sidebar)
+   ============================================= */
+.main .stTextInput input,
+.main [data-baseweb="input"] input {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1.5px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+    font-family: var(--font) !important;
+    font-size: 0.9rem !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+.main .stTextInput input:focus,
+.main [data-baseweb="input"] input:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1) !important;
+    outline: none !important;
+}
+
+/* Selectbox */
+.main .stSelectbox [data-baseweb="select"] > div:first-child {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1.5px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+/* Dropdown popover */
+[data-baseweb="popover"] [data-baseweb="menu"],
+[role="listbox"] {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+[role="option"] {
+    color: var(--text-primary) !important;
+    font-family: var(--font) !important;
+}
+
+[role="option"]:hover,
+[role="option"][aria-selected="true"] {
+    background-color: var(--accent-light) !important;
+    color: var(--accent) !important;
+}
+
+/* Multiselect tags */
+[data-baseweb="tag"] {
+    background-color: var(--accent-light) !important;
+    border-color: var(--accent) !important;
+}
+
+[data-baseweb="tag"] span {
+    color: var(--accent) !important;
+}
+
+/* =============================================
+   BOTÕES — ÁREA PRINCIPAL
+   ============================================= */
+.main .stButton > button {
+    font-family: var(--font) !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    border-radius: var(--radius-md) !important;
+    transition: all 0.18s ease !important;
+    padding: 0.5rem 1.1rem !important;
+    letter-spacing: 0.01em !important;
+}
+
+.main .stButton > button[kind="primary"] {
+    background-color: var(--accent) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 2px 6px rgba(37,99,235,0.25) !important;
+}
+
+.main .stButton > button[kind="primary"]:hover {
+    background-color: var(--accent-hover) !important;
+    box-shadow: 0 4px 12px rgba(37,99,235,0.35) !important;
+    transform: translateY(-1px) !important;
+}
+
+.main .stButton > button[kind="secondary"] {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1.5px solid var(--border) !important;
+}
+
+.main .stButton > button[kind="secondary"]:hover {
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* =============================================
+   TABS
+   ============================================= */
+.stTabs [data-baseweb="tab-list"] {
+    background-color: var(--bg-card) !important;
+    border-bottom: 2px solid var(--border) !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background-color: transparent !important;
+    color: var(--text-secondary) !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    padding: 0.85rem 1.3rem !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    margin-bottom: -2px !important;
+    transition: all 0.15s !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    color: var(--accent) !important;
+    background-color: var(--accent-light) !important;
+}
+
+.stTabs [aria-selected="true"] {
+    color: var(--accent) !important;
+    border-bottom: 2px solid var(--accent) !important;
+    font-weight: 600 !important;
+    background-color: transparent !important;
+}
+
+/* =============================================
+   DATAFRAME & DATA EDITOR
+   ============================================= */
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"] {
+    border-radius: var(--radius-lg) !important;
+    border: 1px solid var(--border) !important;
+    overflow: hidden !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+/* =============================================
+   MÉTRICAS — ÁREA PRINCIPAL
+   ============================================= */
+.main [data-testid="stMetricValue"] {
+    font-family: var(--font) !important;
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+}
+
+.main [data-testid="stMetricLabel"] {
+    font-family: var(--font) !important;
+    color: var(--text-secondary) !important;
+    font-size: 0.78rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    font-weight: 600 !important;
+}
+
+/* =============================================
+   ALERTAS
+   ============================================= */
+.stAlert {
+    border-radius: var(--radius-md) !important;
+    border-left-width: 4px !important;
+}
+
+/* =============================================
+   PROGRESS BAR
+   ============================================= */
+.stProgress > div > div > div > div {
+    background: linear-gradient(90deg, var(--accent), #7c3aed) !important;
+    border-radius: 99px !important;
+}
+
+.stProgress > div > div {
+    background-color: var(--border) !important;
+    border-radius: 99px !important;
+}
+
+/* =============================================
+   SCROLLBAR
+   ============================================= */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* =============================================
+   DIVIDER
+   ============================================= */
+.main hr {
+    border-color: var(--border) !important;
+    margin: 1.5rem 0 !important;
+}
+
+/* =============================================
+   CAPTION
+   ============================================= */
+.main .stCaption,
+.main [data-testid="stCaptionContainer"] {
+    color: var(--text-secondary) !important;
+    font-size: 0.82rem !important;
+}
+
+/* =============================================
+   TOAST
+   ============================================= */
+[data-testid="stToast"] {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+/* =============================================
+   DOWNLOAD BUTTON
+   ============================================= */
+.main [data-testid="stDownloadButton"] button {
+    font-family: var(--font) !important;
+    border-radius: var(--radius-md) !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    transition: all 0.18s !important;
+}
+
+/* =============================================
+   SUBHEADER / HEADER
+   ============================================= */
+.main h2, .main h3 {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.02em !important;
+}
+
+/* =============================================
+   CARDS CUSTOMIZADOS
+   ============================================= */
+.kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s, transform 0.2s;
+    text-align: center;
+}
+
+.kpi-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.kpi-value {
+    font-size: 2.1rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 0.35rem;
+}
+
+.kpi-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.kpi-accent  { color: var(--accent); }
+.kpi-success { color: var(--success); }
+.kpi-warning { color: var(--warning); }
+.kpi-danger  { color: var(--danger); }
+.kpi-purple  { color: #7c3aed; }
+
+/* App header */
+.app-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+    padding: 1.75rem 2rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.app-header h1 {
+    color: #ffffff !important;
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+    letter-spacing: -0.02em !important;
+}
+
+.app-header p {
+    color: #64748b !important;
+    font-size: 0.82rem !important;
+    margin: 0.35rem 0 0 !important;
+    font-family: var(--font-mono) !important;
+}
+
+/* Sidebar header */
+.sidebar-brand {
+    padding: 0.25rem 0 1rem;
+}
+
+.sidebar-brand h2 {
+    color: #ffffff !important;
+    font-size: 1.2rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    margin: 0 !important;
+}
+
+.sidebar-brand p {
+    color: #475569 !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    margin: 0.2rem 0 0 !important;
+}
+
+/* Badge */
+.badge {
+    display: inline-block;
+    padding: 0.18rem 0.55rem;
+    border-radius: 99px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+.badge-blue   { background: #dbeafe; color: #1d4ed8; }
+.badge-green  { background: #d1fae5; color: #065f46; }
+.badge-orange { background: #fef3c7; color: #92400e; }
+.badge-red    { background: #fee2e2; color: #991b1b; }
+
+/* Info box */
+.info-box {
+    background: var(--accent-light);
+    border: 1px solid #bfdbfe;
+    border-radius: var(--radius-md);
+    padding: 0.85rem 1rem;
+    font-size: 0.85rem;
+    color: #1e40af;
+    margin: 0.5rem 0;
+}
+
+footer { visibility: hidden; }
+</style>
 """, unsafe_allow_html=True)
 
 # --- CONSTANTES ---
@@ -514,10 +545,6 @@ def resolver_coluna(df: pd.DataFrame, nome_desejado: str, criar_se_nao_existir: 
 
 def resolver_colunas_editaveis(df: pd.DataFrame) -> list:
     return [resolver_coluna(df, c, criar_se_nao_existir=True) for c in COLUNAS_EDITAVEIS]
-
-
-def resolver_colunas_obrigatorias(df: pd.DataFrame) -> list:
-    return [resolver_coluna(df, c) for c in COLUNAS_OBRIGATORIAS]
 
 
 def calcular_hash(df: pd.DataFrame) -> str:
@@ -586,6 +613,10 @@ def validar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(erros) if erros else pd.DataFrame(
         columns=["Nº Linha", "Campo", "Valor Atual", "Descrição", "Severidade"]
     )
+
+
+def resolver_colunas_obrigatorias(df: pd.DataFrame) -> list:
+    return [resolver_coluna(df, c) for c in COLUNAS_OBRIGATORIAS]
 
 
 def garantir_colunas(df: pd.DataFrame) -> pd.DataFrame:
@@ -684,27 +715,26 @@ for k, v in defaults.items():
 # ============================================================
 with st.sidebar:
     st.markdown("""
-        <div class="sidebar-header">
-            <h2 style="margin:0; font-size:1.5rem; color:white !important; -webkit-text-fill-color:white !important;">🚀 Importador Pro v4</h2>
-            <p style="margin:0; font-size:0.8rem; opacity:0.9; color:rgba(255,255,255,0.85) !important; -webkit-text-fill-color:rgba(255,255,255,0.85) !important;">Enterprise Suite</p>
+        <div class="sidebar-brand">
+            <h2>🚀 Importador Pro</h2>
+            <p>v5 · Enterprise Suite</p>
         </div>
     """, unsafe_allow_html=True)
 
-    st.caption(f"📋 Sessão: `{st.session_state.session_id}`")
-
+    st.caption(f"Sessão · `{st.session_state.session_id}`")
     st.divider()
 
     if st.session_state.df_principal is not None:
         col1, col2 = st.columns(2)
         nome_exibir = st.session_state.nome_arquivo
-        if len(nome_exibir) > 20:
-            nome_exibir = nome_exibir[:20] + "..."
-        col1.metric("📄 Arquivo", nome_exibir)
-        col2.metric("📊 Registros", f"{len(st.session_state.df_principal):,}")
+        if len(nome_exibir) > 18:
+            nome_exibir = nome_exibir[:18] + "…"
+        col1.metric("Arquivo", nome_exibir)
+        col2.metric("Registros", f"{len(st.session_state.df_principal):,}")
 
     st.divider()
+    st.subheader("📁 Planilha Principal")
 
-    st.subheader("📁 Gerenciar Planilha")
     uploaded_file = st.file_uploader(
         "Carregar planilha do sistema",
         type=["xlsx", "csv"],
@@ -717,7 +747,7 @@ with st.sidebar:
             st.session_state.df_principal is None
             or uploaded_file.name != st.session_state.nome_arquivo
         ):
-            with st.spinner("🔄 Processando arquivo..."):
+            with st.spinner("Processando…"):
                 df_novo = ler_arquivo(uploaded_file)
                 df_novo = garantir_colunas(df_novo)
                 st.session_state.df_principal = df_novo
@@ -725,14 +755,14 @@ with st.sidebar:
                 st.session_state.qa_checks = {}
                 st.session_state.df_erros_cache = None
                 st.session_state.historico_alteracoes = []
-            st.success(f"✅ `{uploaded_file.name}` carregado com sucesso!")
+            st.success(f"✅ `{uploaded_file.name}` carregado!")
             st.rerun()
 
     if st.session_state.df_principal is not None:
         st.divider()
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🗑️ Nova Planilha", use_container_width=True, type="secondary"):
+            if st.button("🗑️ Limpar", use_container_width=True):
                 for key in defaults:
                     st.session_state[key] = defaults[key]
                 st.rerun()
@@ -746,7 +776,6 @@ with st.sidebar:
             )
 
     st.divider()
-
     with st.expander("ℹ️ Guia Rápido"):
         st.markdown("""
         **Fluxo de trabalho:**
@@ -759,57 +788,53 @@ with st.sidebar:
 
 
 # ============================================================
-# CORPO PRINCIPAL
+# CORPO PRINCIPAL — TELA INICIAL
 # ============================================================
 if st.session_state.df_principal is None:
     st.markdown("""
-        <div class="app-header" style="text-align: center;">
-            <h1 style="color:white !important; -webkit-text-fill-color:white !important;">🚀 Bem-vindo ao Importador Pro v4</h1>
-            <p style="color:#94a3b8 !important; -webkit-text-fill-color:#94a3b8 !important;">Sistema inteligente de importação e validação de dados</p>
+        <div class="app-header" style="text-align:center; padding: 3rem 2rem;">
+            <h1 style="font-size:2rem !important; margin-bottom:0.5rem !important;">🚀 Importador Pro v5</h1>
+            <p>Sistema inteligente de importação e validação de dados · Enterprise</p>
         </div>
     """, unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("""
-            <div class="card">
-                <h3>🎯 Precisão</h3>
-                <p>Validação inteligente de EAN, SKU e campos obrigatórios</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        st.markdown("""
-            <div class="card">
-                <h3>⚡ Performance</h3>
-                <p>Processamento otimizado para grandes volumes de dados</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with col3:
-        st.markdown("""
-            <div class="card">
-                <h3>🔒 Confiabilidade</h3>
-                <p>QA Gate com revisão por lotes e log de auditoria</p>
-            </div>
-        """, unsafe_allow_html=True)
+    features = [
+        ("🎯", "Precisão", "Validação inteligente de EAN, SKU e campos obrigatórios"),
+        ("⚡", "Performance", "Processamento otimizado para grandes volumes de dados"),
+        ("🔒", "Confiabilidade", "QA Gate com revisão por lotes e log de auditoria"),
+    ]
+    for col, (icon, title, desc) in zip([col1, col2, col3], features):
+        with col:
+            st.markdown(f"""
+                <div class="kpi-card" style="text-align:left; padding:1.5rem;">
+                    <div style="font-size:1.75rem; margin-bottom:0.6rem;">{icon}</div>
+                    <div style="font-weight:700; font-size:0.95rem; color:#0f172a; margin-bottom:0.4rem;">{title}</div>
+                    <div style="font-size:0.82rem; color:#64748b;">{desc}</div>
+                </div>
+            """, unsafe_allow_html=True)
 
     st.info("👈 Faça o upload da planilha no menu lateral para começar.")
     st.stop()
 
-# Header da aplicação
+
+# ============================================================
+# APP HEADER
+# ============================================================
 st.markdown(f"""
     <div class="app-header">
-        <h1 style="color:white !important; -webkit-text-fill-color:white !important;">📊 {st.session_state.nome_arquivo}</h1>
-        <p style="color:#94a3b8 !important; -webkit-text-fill-color:#94a3b8 !important;">Sessão: {st.session_state.session_id} | Atualizado: {datetime.now().strftime('%H:%M:%S')}</p>
+        <h1>📊 {st.session_state.nome_arquivo}</h1>
+        <p>Sessão: {st.session_state.session_id} · Atualizado: {datetime.now().strftime('%H:%M:%S')}</p>
     </div>
 """, unsafe_allow_html=True)
 
-# Abas principais
+# ABAS
 tab_busca, tab_editor, tab_procv, tab_erros, tab_export = st.tabs([
     "🔍 Dashboard & Busca",
-    "📝 Editor Avançado",
+    "📝 Editor",
     "🔗 PROCV / De-Para",
-    "🚨 Validação & Erros",
-    "✅ QA Exportação"
+    "🚨 Validação",
+    "✅ QA Exportação",
 ])
 
 
@@ -819,120 +844,99 @@ tab_busca, tab_editor, tab_procv, tab_erros, tab_export = st.tabs([
 with tab_busca:
     df = st.session_state.df_principal
 
-    st.subheader("📈 Visão Geral")
-    cols_metric = st.columns(4)
-
     col_sku_real = resolver_coluna(df, COLUNA_SKU)
     skus_vazios = contar_vazios(df, col_sku_real) if col_sku_real in df.columns else len(df)
     skus_preenchidos = len(df) - skus_vazios
     taxa_sku = (skus_preenchidos / len(df) * 100) if len(df) > 0 else 0
 
-    with cols_metric[0]:
+    if st.session_state.df_erros_cache is not None:
+        n_erros = len(st.session_state.df_erros_cache)
+        erros_label = str(n_erros)
+    else:
+        erros_label = "—"
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    with c1:
+        cor_valor = "kpi-accent"
         st.markdown(f"""
-            <div class="card metric-card">
-                <div class="metric-value">{len(df):,}</div>
-                <div class="metric-label">Total Registros</div>
+            <div class="kpi-card">
+                <div class="kpi-value {cor_valor}">{len(df):,}</div>
+                <div class="kpi-label">Total Registros</div>
             </div>
         """, unsafe_allow_html=True)
 
-    with cols_metric[1]:
+    with c2:
         st.markdown(f"""
-            <div class="card metric-card">
-                <div class="metric-value">{len(df.columns)}</div>
-                <div class="metric-label">Colunas</div>
+            <div class="kpi-card">
+                <div class="kpi-value kpi-purple">{len(df.columns)}</div>
+                <div class="kpi-label">Colunas</div>
             </div>
         """, unsafe_allow_html=True)
 
-    with cols_metric[2]:
-        color_taxa = "#059669" if taxa_sku > 90 else "#d97706"
+    with c3:
+        cor = "kpi-success" if taxa_sku > 90 else "kpi-warning"
         st.markdown(f"""
-            <div class="card metric-card">
-                <div class="metric-value" style="background: none; -webkit-background-clip: unset; background-clip: unset; -webkit-text-fill-color: {color_taxa}; color: {color_taxa};">{taxa_sku:.1f}%</div>
-                <div class="metric-label">Taxa SKU</div>
+            <div class="kpi-card">
+                <div class="kpi-value {cor}">{taxa_sku:.1f}%</div>
+                <div class="kpi-label">Taxa SKU</div>
             </div>
         """, unsafe_allow_html=True)
 
-    with cols_metric[3]:
-        if st.session_state.df_erros_cache is not None:
-            n_erros = len(st.session_state.df_erros_cache)
-        else:
-            n_erros = "..."
+    with c4:
+        cor_e = "kpi-danger" if erros_label not in ("0", "—") else "kpi-success"
         st.markdown(f"""
-            <div class="card metric-card">
-                <div class="metric-value">{n_erros}</div>
-                <div class="metric-label">Erros Detectados</div>
+            <div class="kpi-card">
+                <div class="kpi-value {cor_e}">{erros_label}</div>
+                <div class="kpi-label">Erros Detectados</div>
             </div>
         """, unsafe_allow_html=True)
 
     st.divider()
+    st.subheader("🔎 Pesquisa")
 
-    st.subheader("🔎 Pesquisa Inteligente")
     col_search, col_filter = st.columns([3, 1])
-
     with col_search:
         termo = st.text_input(
-            "Buscar por SKU, Marca, EAN, ID...",
-            placeholder="Digite para filtrar resultados...",
+            "Buscar",
+            placeholder="Buscar por SKU, Marca, EAN, ID…",
             label_visibility="collapsed"
         )
-
     with col_filter:
-        modo_busca = st.selectbox(
-            "Modo",
-            ["Contém", "Exato", "Regex"],
-            label_visibility="collapsed"
-        )
+        modo_busca = st.selectbox("Modo", ["Contém", "Exato", "Regex"], label_visibility="collapsed")
 
     if termo:
         if modo_busca == "Contém":
-            mask = df.astype(str).apply(
-                lambda x: x.str.contains(termo, case=False, na=False)
-            ).any(axis=1)
+            mask = df.astype(str).apply(lambda x: x.str.contains(termo, case=False, na=False)).any(axis=1)
         elif modo_busca == "Exato":
-            mask = df.astype(str).apply(
-                lambda x: x.str.strip().str.lower() == termo.strip().lower()
-            ).any(axis=1)
+            mask = df.astype(str).apply(lambda x: x.str.strip().str.lower() == termo.strip().lower()).any(axis=1)
         else:
             try:
-                mask = df.astype(str).apply(
-                    lambda x: x.str.contains(termo, case=False, na=False, regex=True)
-                ).any(axis=1)
+                mask = df.astype(str).apply(lambda x: x.str.contains(termo, case=False, na=False, regex=True)).any(axis=1)
             except:
                 st.error("Expressão regular inválida!")
                 mask = pd.Series([True] * len(df))
 
         resultados = df[mask]
-        st.caption(f"✨ {len(resultados):,} resultado(s) para: `{termo}`")
-        st.dataframe(
-            resultados,
-            use_container_width=True,
-            height=500,
-            column_config={
-                "EAN": st.column_config.TextColumn("EAN", width="medium"),
-                "SKU": st.column_config.TextColumn("SKU", width="medium"),
-            }
-        )
+        st.caption(f"{len(resultados):,} resultado(s) para `{termo}`")
+        st.dataframe(resultados, use_container_width=True, height=480)
     else:
-        col_preview, col_chart = st.columns([3, 1])
+        col_prev, col_chart = st.columns([3, 1])
 
-        with col_preview:
-            st.dataframe(
-                df.head(50),
-                use_container_width=True,
-                height=500
-            )
+        with col_prev:
+            st.dataframe(df.head(50), use_container_width=True, height=480)
             if len(df) > 50:
-                st.caption(f"📄 Exibindo primeiras 50 de {len(df):,} linhas")
+                st.caption(f"Exibindo 50 de {len(df):,} linhas")
 
         with col_chart:
             st.markdown("**Completude das Colunas**")
-            completude = {}
-            for col in df.columns:
-                completude[col] = (len(df) - contar_vazios(df, col)) / len(df) * 100
-
+            completude = {
+                col: (len(df) - contar_vazios(df, col)) / len(df) * 100
+                for col in df.columns
+            }
             df_completude = pd.DataFrame({
-                "Coluna": completude.keys(),
-                "% Preenchido": completude.values()
+                "Coluna": list(completude.keys()),
+                "% Preenchido": list(completude.values())
             }).sort_values("% Preenchido", ascending=True)
 
             fig = px.bar(
@@ -941,89 +945,108 @@ with tab_busca:
                 y="Coluna",
                 orientation='h',
                 color="% Preenchido",
-                color_continuous_scale="RdYlGn",
-                range_color=[0, 100]
+                color_continuous_scale=["#fca5a5", "#fde68a", "#6ee7b7"],
+                range_color=[0, 100],
             )
             fig.update_layout(
-                height=300,
-                margin=dict(l=0, r=0, t=0, b=0),
-                showlegend=False
+                height=max(280, len(df.columns) * 22),
+                margin=dict(l=0, r=10, t=10, b=0),
+                showlegend=False,
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                xaxis=dict(showgrid=True, gridcolor="#f1f5f9", range=[0, 100]),
+                yaxis=dict(showgrid=False),
+                font=dict(family="DM Sans", size=11),
+                coloraxis_showscale=False,
             )
+            fig.update_traces(marker_line_width=0)
             st.plotly_chart(fig, use_container_width=True)
 
 
 # ============================================================
-# ABA 2 — EDITOR AVANÇADO
+# ABA 2 — EDITOR AVANÇADO  (INLINE EDITING CORRIGIDO)
 # ============================================================
 with tab_editor:
-    st.header("📝 Editor de Planilha Avançado")
+    st.header("📝 Editor de Planilha")
+
+    df_atual = st.session_state.df_principal
+
+    # Identificar colunas editáveis que realmente existem no df
+    colunas_edit_reais = []
+    for c in COLUNAS_EDITAVEIS:
+        col_real = resolver_coluna(df_atual, c)
+        if col_real in df_atual.columns:
+            colunas_edit_reais.append(col_real)
+
+    # Colunas bloqueadas = todas as que NÃO estão na lista editável
+    colunas_bloqueadas = [c for c in df_atual.columns if c not in colunas_edit_reais]
 
     col_info, col_stats = st.columns([2, 1])
     with col_info:
-        st.caption(
-            f"✏️ Colunas editáveis: **{', '.join(COLUNAS_EDITAVEIS)}** | "
-            f"Demais colunas são somente leitura"
-        )
+        edit_names = ", ".join([f"`{c}`" for c in colunas_edit_reais])
+        st.caption(f"✏️ Colunas editáveis: {edit_names} · Demais são somente leitura")
     with col_stats:
         if st.session_state.historico_alteracoes:
             st.info(f"🕒 {len(st.session_state.historico_alteracoes)} alterações nesta sessão")
 
-    colunas_bloqueadas = [
-        c for c in st.session_state.df_principal.columns
-        if c not in COLUNAS_EDITAVEIS
-    ]
-
+    # Configuração das colunas para o editor
     column_config = {}
-    for col in st.session_state.df_principal.columns:
-        if col == "EAN":
+    for col in df_atual.columns:
+        if col in colunas_bloqueadas:
+            # Somente leitura — sem configuração extra (o disabled cuida disso)
+            pass
+        elif normalizar_nome_col(col) == normalizar_nome_col("EAN"):
             column_config[col] = st.column_config.TextColumn(
-                "EAN 📊",
+                f"{col} 📊",
                 help="Código EAN (8, 12 ou 13 dígitos)",
-                validate="^[0-9]*$"
             )
-        elif col == "Kit quantidade":
+        elif normalizar_nome_col(col) == normalizar_nome_col("Kit quantidade"):
             column_config[col] = st.column_config.NumberColumn(
-                "Kit Qtd 📦",
+                f"{col} 📦",
                 min_value=0,
                 step=1,
                 format="%d"
             )
-        elif col in COLUNAS_EDITAVEIS:
+        else:
             column_config[col] = st.column_config.TextColumn(col)
 
+    # -------------------------------------------------------
+    # DATA EDITOR — disabled recebe a lista de colunas bloqueadas
+    # -------------------------------------------------------
     df_editado = st.data_editor(
-        st.session_state.df_principal,
+        df_atual,
         use_container_width=True,
         num_rows="dynamic",
-        disabled=colunas_bloqueadas,
+        disabled=colunas_bloqueadas,   # <-- lista explícita, não booleano
         key="editor_principal",
         height=600,
         column_config=column_config,
-        hide_index=None,
+        hide_index=False,
     )
 
     col1, col2, col3 = st.columns([1, 1, 2])
+
     with col1:
         if st.button("💾 Salvar Alterações", type="primary", use_container_width=True):
-            if not df_editado.equals(st.session_state.df_principal):
+            if not df_editado.equals(df_atual):
                 st.session_state.historico_alteracoes.append({
                     "timestamp": datetime.now().isoformat(),
-                    "user": "admin"
+                    "linhas_alteradas": int((df_editado != df_atual).any(axis=1).sum())
                 })
                 st.session_state.df_principal = df_editado
                 st.session_state.df_erros_cache = None
-                st.toast("✅ Alterações salvas com sucesso!", icon="✅")
+                st.toast("✅ Alterações salvas!", icon="✅")
                 st.rerun()
+            else:
+                st.toast("ℹ️ Nenhuma alteração detectada")
 
     with col2:
-        if st.button("↩️ Desfazer Última", use_container_width=True):
-            if st.session_state.historico_alteracoes:
-                st.session_state.historico_alteracoes.pop()
-                st.info("Funcionalidade em desenvolvimento")
+        if st.button("↩️ Reverter", use_container_width=True):
+            st.info("💡 Para reverter, recarregue o arquivo original no menu lateral.")
 
     with col3:
         st.download_button(
-            "⬇️ Exportar Editado",
+            "⬇️ Exportar Editado (CSV)",
             data=df_editado.to_csv(index=False).encode('utf-8'),
             file_name=f"editado_{st.session_state.session_id}.csv",
             mime="text/csv",
@@ -1035,7 +1058,7 @@ with tab_editor:
 # ABA 3 — PROCV / DE-PARA
 # ============================================================
 with tab_procv:
-    st.header("🔗 PROCV Inteligente — De/Para Automático")
+    st.header("🔗 PROCV — De/Para Automático")
     st.markdown(
         "Combine dados de planilhas externas usando **ID do canal de venda** como chave. "
         "O sistema preenche automaticamente os SKUs correspondentes."
@@ -1045,78 +1068,50 @@ with tab_procv:
         "📤 Planilha do Cliente (fonte dos SKUs)",
         type=["xlsx", "csv"],
         key="ext_upload",
-        help="Esta planilha deve conter ID do anúncio e SKU correspondente"
     )
 
     if ext_file:
         df_ext = ler_arquivo(ext_file)
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Registros", f"{len(df_ext):,}")
-        col2.metric("Colunas", len(df_ext.columns))
-        col3.metric("Tamanho", f"{ext_file.size / 1024:.1f} KB")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Registros", f"{len(df_ext):,}")
+        c2.metric("Colunas", len(df_ext.columns))
+        c3.metric("Tamanho", f"{ext_file.size / 1024:.1f} KB")
 
         with st.expander("👁️ Preview da Planilha Fonte"):
             st.dataframe(df_ext.head(10), use_container_width=True)
 
         st.divider()
-
         st.subheader("⚙️ Configurar Mapeamento")
 
-        with st.expander("🧙 Assistente de Configuração", expanded=True):
-            col_a, col_b = st.columns(2)
+        col_a, col_b = st.columns(2)
 
-            with col_a:
-                st.markdown("**🔵 Planilha do Sistema (Destino)**")
-                col_id_sistema = st.selectbox(
-                    "Coluna de ID",
-                    st.session_state.df_principal.columns,
-                    help="Chave de ligação (ex: ID do canal de venda)",
-                    key="id_sistema"
-                )
-                col_sku_sistema = st.selectbox(
-                    "Coluna SKU (destino)",
-                    st.session_state.df_principal.columns,
-                    help="Onde os SKUs serão salvos",
-                    key="sku_sistema"
-                )
+        with col_a:
+            st.markdown("**🔵 Planilha do Sistema (Destino)**")
+            col_id_sistema = st.selectbox("Coluna de ID", st.session_state.df_principal.columns, key="id_sistema")
+            col_sku_sistema = st.selectbox("Coluna SKU (destino)", st.session_state.df_principal.columns, key="sku_sistema")
 
-            with col_b:
-                st.markdown("**🟢 Planilha do Cliente (Origem)**")
-                col_id_cliente = st.selectbox(
-                    "Coluna de ID",
-                    df_ext.columns,
-                    help="Chave correspondente à do sistema",
-                    key="id_cliente"
-                )
-                col_sku_cliente = st.selectbox(
-                    "Coluna SKU (origem)",
-                    df_ext.columns,
-                    help="SKUs que serão copiados",
-                    key="sku_cliente"
-                )
+        with col_b:
+            st.markdown("**🟢 Planilha do Cliente (Origem)**")
+            col_id_cliente = st.selectbox("Coluna de ID", df_ext.columns, key="id_cliente")
+            col_sku_cliente = st.selectbox("Coluna SKU (origem)", df_ext.columns, key="sku_cliente")
 
-        st.info(
-            f"🔗 **Lógica:** `Sistema.{col_id_sistema}` ↔ `Cliente.{col_id_cliente}` → "
-            f"`Cliente.{col_sku_cliente}` → `Sistema.{col_sku_sistema}`"
-        )
+        st.markdown(f"""
+            <div class="info-box">
+                🔗 <strong>Lógica:</strong>
+                <code>Sistema.{col_id_sistema}</code> ↔ <code>Cliente.{col_id_cliente}</code>
+                → <code>Cliente.{col_sku_cliente}</code> → <code>Sistema.{col_sku_sistema}</code>
+            </div>
+        """, unsafe_allow_html=True)
 
         col_opt1, col_opt2 = st.columns(2)
         with col_opt1:
-            sobrescrever = st.checkbox(
-                "🔄 Sobrescrever SKUs já preenchidos",
-                value=False,
-                help="Se ativado, substitui SKUs existentes"
-            )
+            sobrescrever = st.checkbox("🔄 Sobrescrever SKUs já preenchidos", value=False)
         with col_opt2:
-            ignorar_na = st.checkbox(
-                "🚫 Ignorar IDs não encontrados",
-                value=True,
-                help="Não modifica linhas sem correspondência"
-            )
+            st.checkbox("🚫 Ignorar IDs não encontrados", value=True)
 
         if st.button("🚀 Executar PROCV", type="primary", use_container_width=True):
-            with st.spinner("Processando merge..."):
+            with st.spinner("Processando merge…"):
                 try:
                     df_resultado, stats = executar_merge_procv(
                         df_sistema=st.session_state.df_principal.copy(),
@@ -1127,34 +1122,32 @@ with tab_procv:
                         col_sku_sistema=col_sku_sistema,
                         sobrescrever=sobrescrever
                     )
-
                     st.session_state.df_principal = df_resultado
                     st.session_state.df_erros_cache = None
-
                     st.success("✅ PROCV executado com sucesso!")
 
-                    col_r1, col_r2, col_r3 = st.columns(3)
-                    col_r1.metric("✅ SKUs Preenchidos", f"{stats['preenchidos']:,}")
-                    col_r2.metric("⚠️ Não Encontrados", f"{stats['nao_encontrados']:,}")
-                    col_r3.metric("📊 Taxa de Sucesso", stats['taxa_sucesso'])
+                    r1, r2, r3 = st.columns(3)
+                    r1.metric("✅ SKUs Preenchidos", f"{stats['preenchidos']:,}")
+                    r2.metric("⚠️ Não Encontrados", f"{stats['nao_encontrados']:,}")
+                    r3.metric("📊 Taxa de Sucesso", stats['taxa_sucesso'])
 
-                    fig = go.Figure(data=[
-                        go.Pie(
-                            labels=['Preenchidos', 'Não Encontrados'],
-                            values=[stats['preenchidos'], stats['nao_encontrados']],
-                            hole=.4,
-                            marker_colors=['#059669', '#d97706']
-                        )
-                    ])
+                    fig = go.Figure(data=[go.Pie(
+                        labels=['Preenchidos', 'Não Encontrados'],
+                        values=[stats['preenchidos'], stats['nao_encontrados']],
+                        hole=.45,
+                        marker_colors=['#059669', '#f59e0b'],
+                        textinfo='label+percent',
+                    )])
                     fig.update_layout(
                         title="Resultado do PROCV",
                         height=300,
-                        showlegend=True
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        font=dict(family="DM Sans"),
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
                     if stats['nao_encontrados'] > 0:
-                        with st.expander(f"📋 {stats['nao_encontrados']} IDs não encontrados"):
+                        with st.expander(f"📋 {stats['nao_encontrados']} IDs sem match"):
                             sem_match = df_resultado[
                                 df_resultado[col_sku_sistema].isna() |
                                 (df_resultado[col_sku_sistema].astype(str).str.strip() == "")
@@ -1162,7 +1155,6 @@ with tab_procv:
                             st.dataframe(sem_match, use_container_width=True)
 
                     st.rerun()
-
                 except Exception as e:
                     st.error(f"❌ Erro no merge: {str(e)}")
     else:
@@ -1177,67 +1169,63 @@ with tab_erros:
 
     col_btn, col_auto = st.columns([1, 3])
     with col_btn:
-        if st.button("🔄 Executar Validação", type="primary", use_container_width=True):
-            with st.spinner("Validando dados..."):
+        if st.button("🔄 Validar Agora", type="primary", use_container_width=True):
+            with st.spinner("Validando…"):
                 st.session_state.df_erros_cache = validar_dataframe(st.session_state.df_principal)
             st.rerun()
     with col_auto:
-        st.caption("💡 A validação é executada automaticamente ao carregar/editar")
+        st.caption("💡 Clique em Validar Agora ou a validação roda automaticamente ao abrir a aba")
 
     if st.session_state.df_erros_cache is None:
-        with st.spinner("Executando validação inicial..."):
+        with st.spinner("Executando validação…"):
             st.session_state.df_erros_cache = validar_dataframe(st.session_state.df_principal)
 
     df_erros = st.session_state.df_erros_cache
 
-    st.subheader("📊 Dashboard de Qualidade")
-
     if df_erros.empty:
-        st.success("🎉 **Dados 100% Consistentes!** Nenhum erro ou inconsistência encontrada.")
+        st.success("🎉 **Dados 100% consistentes!** Nenhum erro encontrado.")
     else:
         criticos = len(df_erros[df_erros["Severidade"] == "🚨 Crítico"])
-        alertas = len(df_erros[df_erros["Severidade"] == "⚠️ Alerta"])
-        infos = len(df_erros[df_erros["Severidade"] == "ℹ️ Informativo"])
+        alertas  = len(df_erros[df_erros["Severidade"] == "⚠️ Alerta"])
+        infos    = len(df_erros[df_erros["Severidade"] == "ℹ️ Informativo"])
 
-        col_c, col_a, col_i = st.columns(3)
-        with col_c:
-            st.error(f"🚨 **{criticos} Críticos**")
-        with col_a:
-            st.warning(f"⚠️ **{alertas} Alertas**")
-        with col_i:
-            st.info(f"ℹ️ **{infos} Informativos**")
+        c_c, c_a, c_i = st.columns(3)
+        with c_c: st.error(f"🚨 **{criticos} Críticos**")
+        with c_a: st.warning(f"⚠️ **{alertas} Alertas**")
+        with c_i: st.info(f"ℹ️ **{infos} Informativos**")
 
-        fig = go.Figure(data=[
-            go.Bar(
-                x=['Críticos', 'Alertas', 'Informativos'],
-                y=[criticos, alertas, infos],
-                marker_color=['#dc2626', '#d97706', '#2563eb'],
-                text=[criticos, alertas, infos],
-                textposition='auto',
-            )
-        ])
+        fig = go.Figure(data=[go.Bar(
+            x=['Críticos', 'Alertas', 'Informativos'],
+            y=[criticos, alertas, infos],
+            marker_color=['#dc2626', '#d97706', '#2563eb'],
+            text=[criticos, alertas, infos],
+            textposition='auto',
+        )])
         fig.update_layout(
             title="Distribuição de Erros",
-            height=300,
-            showlegend=False
+            height=280,
+            showlegend=False,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="DM Sans"),
+            margin=dict(t=40, b=20),
         )
         st.plotly_chart(fig, use_container_width=True)
 
         st.divider()
 
-        col_filtro1, col_filtro2 = st.columns(2)
-        with col_filtro1:
+        f1, f2 = st.columns(2)
+        with f1:
             filtro_sev = st.multiselect(
-                "🔍 Filtrar por Severidade",
+                "Severidade",
                 ["🚨 Crítico", "⚠️ Alerta", "ℹ️ Informativo"],
                 default=["🚨 Crítico", "⚠️ Alerta"]
             )
-        with col_filtro2:
-            colunas_erro = df_erros["Campo"].unique()
+        with f2:
             filtro_campo = st.multiselect(
-                "📋 Filtrar por Campo",
-                colunas_erro,
-                default=list(colunas_erro)
+                "Campo",
+                list(df_erros["Campo"].unique()),
+                default=list(df_erros["Campo"].unique())
             )
 
         df_exibir = df_erros[
@@ -1248,19 +1236,18 @@ with tab_erros:
         st.dataframe(
             df_exibir,
             use_container_width=True,
-            height=400,
+            height=380,
             column_config={
-                "Nº Linha": st.column_config.NumberColumn("Nº Linha", format="%d"),
+                "Nº Linha": st.column_config.NumberColumn("Linha", format="%d"),
                 "Severidade": st.column_config.TextColumn("Severidade", width="small"),
                 "Descrição": st.column_config.TextColumn("Descrição", width="large"),
             },
             hide_index=True
         )
+        st.caption(f"{len(df_exibir)} erros exibidos · Corrija na aba **Editor**")
 
-        st.caption(f"📄 {len(df_exibir)} erros exibidos | Corrija na aba **Editor de Planilha**")
-
-        col_dl1, col_dl2 = st.columns(2)
-        with col_dl1:
+        d1, d2 = st.columns(2)
+        with d1:
             st.download_button(
                 "⬇️ Relatório CSV",
                 data=df_erros.to_csv(index=False, sep=';').encode('utf-8'),
@@ -1268,12 +1255,15 @@ with tab_erros:
                 mime="text/csv",
                 use_container_width=True
             )
-        with col_dl2:
+        with d2:
+            buf = io.BytesIO()
+            with pd.ExcelWriter(buf, engine='openpyxl') as w:
+                df_erros.to_excel(w, index=False, sheet_name='Erros')
             st.download_button(
                 "📊 Relatório Excel",
-                data=io.BytesIO(),
+                data=buf.getvalue(),
                 file_name=f"erros_{st.session_state.session_id}.xlsx",
-                disabled=True,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
@@ -1287,63 +1277,41 @@ with tab_export:
     df_final = st.session_state.df_principal
 
     if len(df_final) == 0:
-        st.warning("📭 A planilha está vazia. Nada para revisar.")
+        st.warning("📭 A planilha está vazia.")
         st.stop()
 
-    total_lotes = math.ceil(len(df_final) / TAMANHO_LOTE)
-    revisados = len(st.session_state.qa_checks)
-    lotes_ok = sum(1 for v in st.session_state.qa_checks.values() if v == "OK")
-    lotes_corrigir = sum(1 for v in st.session_state.qa_checks.values() if v == "CORRIGIR")
-    progresso = revisados / total_lotes if total_lotes > 0 else 0
+    total_lotes  = math.ceil(len(df_final) / TAMANHO_LOTE)
+    revisados    = len(st.session_state.qa_checks)
+    lotes_ok     = sum(1 for v in st.session_state.qa_checks.values() if v == "OK")
+    lotes_cor    = sum(1 for v in st.session_state.qa_checks.values() if v == "CORRIGIR")
+    progresso    = revisados / total_lotes if total_lotes > 0 else 0
 
-    st.subheader("📈 Progresso QA")
-    cols_qa = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value kpi-accent">{progresso:.0%}</div><div class="kpi-label">Progresso</div></div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value kpi-success">{lotes_ok}</div><div class="kpi-label">Aprovados</div></div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value kpi-danger">{lotes_cor}</div><div class="kpi-label">p/ Correção</div></div>', unsafe_allow_html=True)
+    with c4:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value kpi-warning">{total_lotes - revisados}</div><div class="kpi-label">Pendentes</div></div>', unsafe_allow_html=True)
 
-    with cols_qa[0]:
-        st.markdown(f"""
-            <div class="card metric-card">
-                <div class="metric-value">{progresso:.0%}</div>
-                <div class="metric-label">Progresso</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with cols_qa[1]:
-        st.markdown(f"""
-            <div class="card metric-card">
-                <div class="metric-value" style="background:none; -webkit-background-clip:unset; background-clip:unset; -webkit-text-fill-color:#059669; color:#059669;">{lotes_ok}</div>
-                <div class="metric-label">Lotes Aprovados</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with cols_qa[2]:
-        st.markdown(f"""
-            <div class="card metric-card">
-                <div class="metric-value" style="background:none; -webkit-background-clip:unset; background-clip:unset; -webkit-text-fill-color:#dc2626; color:#dc2626;">{lotes_corrigir}</div>
-                <div class="metric-label">Lotes p/ Correção</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    with cols_qa[3]:
-        st.markdown(f"""
-            <div class="card metric-card">
-                <div class="metric-value">{total_lotes - revisados}</div>
-                <div class="metric-label">Pendentes</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.progress(progresso, text=f"✅ {revisados}/{total_lotes} lotes revisados")
-
+    st.progress(progresso, text=f"{revisados}/{total_lotes} lotes revisados")
     st.divider()
 
     st.subheader("🔍 Revisar Lote")
     lote_atual = st.selectbox(
-        "Selecionar lote para revisão:",
+        "Selecionar lote:",
         range(1, total_lotes + 1),
-        format_func=lambda x: f"Lote {x} ({'✅ OK' if st.session_state.qa_checks.get(x) == 'OK' else '⚠️ CORRIGIR' if st.session_state.qa_checks.get(x) == 'CORRIGIR' else '⬜ Pendente'})"
+        format_func=lambda x: (
+            f"Lote {x} · ✅ OK" if st.session_state.qa_checks.get(x) == "OK"
+            else f"Lote {x} · ⚠️ Corrigir" if st.session_state.qa_checks.get(x) == "CORRIGIR"
+            else f"Lote {x} · ⬜ Pendente"
+        )
     )
 
     inicio = (lote_atual - 1) * TAMANHO_LOTE
-    fim = min(inicio + TAMANHO_LOTE, len(df_final))
+    fim    = min(inicio + TAMANHO_LOTE, len(df_final))
     preview_lote = df_final.iloc[inicio:fim]
 
     colunas_preview = []
@@ -1353,32 +1321,25 @@ with tab_export:
             colunas_preview.append(col_real)
 
     status_atual = st.session_state.qa_checks.get(lote_atual, "⬜ Pendente")
-    st.caption(
-        f"📋 Lote **{lote_atual}/{total_lotes}** | "
-        f"Linhas {inicio + 1}–{fim} | "
-        f"Status: `{status_atual}`"
-    )
+    st.caption(f"Lote **{lote_atual}/{total_lotes}** · Linhas {inicio+1}–{fim} · Status: `{status_atual}`")
 
     st.dataframe(
         preview_lote[colunas_preview] if colunas_preview else preview_lote,
         use_container_width=True,
-        height=400
+        height=380
     )
 
-    col_ok, col_cor, col_limpar = st.columns([1, 1, 0.5])
-
+    col_ok, col_cor, col_limpar = st.columns([2, 2, 0.8])
     with col_ok:
         if st.button(f"✅ Aprovar Lote {lote_atual}", use_container_width=True, type="primary"):
             st.session_state.qa_checks[lote_atual] = "OK"
-            st.toast(f"✅ Lote {lote_atual} aprovado!", icon="✅")
+            st.toast(f"✅ Lote {lote_atual} aprovado!")
             st.rerun()
-
     with col_cor:
-        if st.button(f"⚠️ Corrigir Lote {lote_atual}", use_container_width=True):
+        if st.button(f"⚠️ Marcar p/ Correção", use_container_width=True):
             st.session_state.qa_checks[lote_atual] = "CORRIGIR"
-            st.toast(f"⚠️ Lote {lote_atual} marcado para correção", icon="⚠️")
+            st.toast(f"⚠️ Lote {lote_atual} marcado para correção")
             st.rerun()
-
     with col_limpar:
         if st.button("↩️", use_container_width=True, help="Limpar status"):
             st.session_state.qa_checks.pop(lote_atual, None)
@@ -1387,47 +1348,34 @@ with tab_export:
     st.divider()
     st.subheader("🗺️ Mapa de Lotes")
 
-    n_cols = min(total_lotes, 12)
+    n_cols = min(total_lotes, 14)
     cols_mapa = st.columns(n_cols)
-
     for i in range(total_lotes):
         lote_n = i + 1
         status = st.session_state.qa_checks.get(lote_n, "")
-
+        emoji = "✅" if status == "OK" else "⚠️" if status == "CORRIGIR" else "⬜"
+        cor   = "#059669" if status == "OK" else "#dc2626" if status == "CORRIGIR" else "#94a3b8"
         with cols_mapa[i % n_cols]:
-            if status == "OK":
-                emoji = "✅"
-                cor = "#059669"
-            elif status == "CORRIGIR":
-                emoji = "⚠️"
-                cor = "#dc2626"
-            else:
-                emoji = "⬜"
-                cor = "#4b5563"
-
             st.markdown(f"""
-                <div style="text-align:center; padding:0.5rem;">
-                    <div style="font-size:1.5rem;">{emoji}</div>
-                    <small style="color:{cor} !important; -webkit-text-fill-color:{cor} !important;">L{lote_n}</small>
+                <div style="text-align:center; padding:0.3rem 0;">
+                    <div style="font-size:1.3rem;">{emoji}</div>
+                    <div style="font-size:0.65rem; color:{cor}; font-weight:700;">L{lote_n}</div>
                 </div>
             """, unsafe_allow_html=True)
 
     st.divider()
 
     if revisados < total_lotes:
-        st.warning(
-            f"⏳ **Revisão incompleta**: {total_lotes - revisados} lotes pendentes. "
-            "Revise todos os lotes para liberar a exportação final."
-        )
+        st.warning(f"⏳ **{total_lotes - revisados} lotes pendentes.** Revise todos para liberar a exportação.")
     else:
-        st.success("🎉 **Todos os lotes revisados!** Exportação final liberada.")
+        st.success("🎉 **Todos os lotes revisados!** Exportação liberada.")
         st.balloons()
 
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         hash_final = calcular_hash(df_final)
 
-        log_auditoria = {
-            "sistema": "Importador Pro v4",
+        log = {
+            "sistema": "Importador Pro v5",
             "sessao": st.session_state.session_id,
             "arquivo": st.session_state.nome_arquivo,
             "data_hora": ts,
@@ -1440,57 +1388,46 @@ with tab_export:
             }
         }
 
-        col_exp1, col_exp2 = st.columns(2)
-
-        with col_exp1:
-            csv_data = df_final.to_csv(index=False).encode('utf-8')
+        e1, e2 = st.columns(2)
+        with e1:
             st.download_button(
-                "⬇️ Download Planilha Final",
-                data=csv_data,
+                "⬇️ Planilha Final (CSV)",
+                data=df_final.to_csv(index=False).encode('utf-8'),
                 file_name=f"importacao_final_{ts}.csv",
                 mime="text/csv",
                 use_container_width=True,
                 type="primary"
             )
-
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_final.to_excel(writer, index=False, sheet_name='Dados')
+            buf = io.BytesIO()
+            with pd.ExcelWriter(buf, engine='openpyxl') as w:
+                df_final.to_excel(w, index=False, sheet_name='Dados')
             st.download_button(
-                "📊 Download Excel",
-                data=output.getvalue(),
+                "📊 Planilha Final (Excel)",
+                data=buf.getvalue(),
                 file_name=f"importacao_final_{ts}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
-
-        with col_exp2:
-            log_json = json.dumps(log_auditoria, indent=2, ensure_ascii=False)
+        with e2:
             st.download_button(
                 "📋 Log Auditoria (JSON)",
-                data=log_json,
+                data=json.dumps(log, indent=2, ensure_ascii=False),
                 file_name=f"qa_log_{ts}.json",
                 mime="application/json",
                 use_container_width=True
             )
-
             log_txt = "\n".join([
-                "=" * 50,
-                "  LOG DE AUDITORIA QA — IMPORTADOR PRO v4",
-                "=" * 50,
-                f"Sessão: {log_auditoria['sessao']}",
-                f"Arquivo: {log_auditoria['arquivo']}",
-                f"Data/Hora: {log_auditoria['data_hora']}",
-                f"Total Linhas: {log_auditoria['total_linhas']}",
-                f"Total Lotes: {log_auditoria['total_lotes']}",
-                f"Hash: {log_auditoria['hash_sha256']}",
-                "",
+                "=" * 52,
+                "  LOG DE AUDITORIA — IMPORTADOR PRO v5",
+                "=" * 52,
+                f"Sessão   : {log['sessao']}",
+                f"Arquivo  : {log['arquivo']}",
+                f"Data/Hora: {log['data_hora']}",
+                f"Linhas   : {log['total_linhas']}",
+                f"Lotes    : {log['total_lotes']}",
+                f"Hash SHA : {log['hash_sha256']}", "",
                 "Resultado por Lote:",
-            ] + [
-                f"  Lote {k.replace('lote_', '').zfill(3)}: {v}"
-                for k, v in log_auditoria['resultado_lotes'].items()
-            ])
-
+            ] + [f"  {k.replace('lote_','Lote ').zfill(3)}: {v}" for k, v in log['resultado_lotes'].items()])
             st.download_button(
                 "📄 Log Auditoria (TXT)",
                 data=log_txt,
@@ -1503,9 +1440,9 @@ with tab_export:
 # --- RODAPÉ ---
 st.markdown("---")
 st.markdown(
-    f"<div style='text-align: center; color: #4b5563; -webkit-text-fill-color: #4b5563; font-size: 0.8rem;'>"
-    f"🚀 Importador Pro v4 Enterprise | Sessão: {st.session_state.session_id} | "
-    f"© {datetime.now().year} | Todos os direitos reservados"
+    f"<div style='text-align:center; color:#94a3b8; font-size:0.75rem; font-family:DM Mono,monospace;'>"
+    f"🚀 Importador Pro v5 Enterprise · Sessão {st.session_state.session_id} · "
+    f"© {datetime.now().year}"
     f"</div>",
     unsafe_allow_html=True
 )
