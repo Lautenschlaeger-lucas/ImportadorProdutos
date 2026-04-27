@@ -19,330 +19,470 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS PROFISSIONAL — REFINADO TOTAL ---
+# --- CSS CORRIGIDO - FORÇA TEMA CLARO ---
 st.markdown("""
     <style>
-    /* ===== DESIGN TOKENS ===== */
-    :root {
-        --primary:    #2563eb;
-        --primary-dk: #1d4ed8;
-        --success:    #059669;
-        --warning:    #d97706;
-        --danger:     #dc2626;
-        --gray-50:    #f9fafb;
-        --gray-100:   #f3f4f6;
-        --gray-200:   #e5e7eb;
-        --gray-300:   #d1d5db;
-        --gray-600:   #4b5563;
-        --gray-700:   #374151;
-        --gray-900:   #111827;
-        --sh-sm: 0 1px 2px 0 rgb(0 0 0/.05);
-        --sh-md: 0 4px 6px -1px rgb(0 0 0/.10);
-        --sh-lg: 0 10px 15px -3px rgb(0 0 0/.10);
+    /* ============================================
+       RESET AGRESSIVO - FORÇA TEMA CLARO
+       ============================================ */
+    
+    /* Força fundo branco em toda a aplicação */
+    .stApp {
+        background-color: #ffffff !important;
     }
-
-    /* ===== GLOBAL RESET para -webkit-text-fill-color ===== */
-    /* Streamlit às vezes herda transparent de ancestral — zeramos tudo */
-    .stApp, .stApp * {
-        -webkit-text-fill-color: unset;
-    }
-
-    /* ===== LAYOUT ===== */
+    
+    /* Corrige fundo preto do main container */
     .main .block-container {
+        background-color: #ffffff !important;
         padding-top: 2rem;
         padding-bottom: 2rem;
         max-width: 1400px;
     }
-    .stApp {
-        background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+    
+    /* Reseta cores de texto globalmente */
+    .stApp, .stApp * {
+        color: #111827 !important;
     }
-
-    /* ===== TIPOGRAFIA GERAL ===== */
-    body, p, span, label, div,
-    h1, h2, h3, h4, h5, h6,
-    .stMarkdown, [data-testid="stMarkdownContainer"] {
-        color: var(--gray-900);
+    
+    /* ============================================
+       SIDEBAR - CORREÇÕES CRÍTICAS
+       ============================================ */
+    
+    /* Força fundo claro na sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: #f8fafc !important;
+        background-image: none !important;
     }
-
-    /* ===== APP HEADER ===== */
-    .app-header {
-        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        padding: 1.5rem 2rem;
-        border-radius: 12px;
-        margin-bottom: 2rem;
-        box-shadow: var(--sh-lg);
+    
+    /* Corrige containers internos da sidebar */
+    section[data-testid="stSidebar"] > div {
+        background-color: #f8fafc !important;
     }
-    .app-header h1 {
+    
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        background-color: transparent !important;
+    }
+    
+    /* Sidebar header customizado */
+    .sidebar-header {
+        background-color: #2563eb !important;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    .sidebar-header h2 {
         color: #ffffff !important;
-        font-size: 2rem;
-        font-weight: 700;
+        font-size: 1.3rem;
         margin: 0;
     }
-    .app-header p {
-        color: #94a3b8 !important;
-        margin: 0.5rem 0 0 0;
-        font-size: 0.9rem;
+    
+    .sidebar-header p {
+        color: rgba(255, 255, 255, 0.8) !important;
+        font-size: 0.8rem;
+        margin: 0.2rem 0 0 0;
     }
-
-    /* ===== TABS ===== */
+    
+    /* ============================================
+       INPUTS E WIDGETS - CORREÇÕES
+       ============================================ */
+    
+    /* Search box e text inputs */
+    .stTextInput input, 
+    .stTextInput textarea,
+    [data-baseweb="input"],
+    [data-baseweb="input"] input {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 8px !important;
+    }
+    
+    .stTextInput input:focus,
+    [data-baseweb="input"]:focus {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1) !important;
+    }
+    
+    /* Selectbox */
+    .stSelectbox [data-baseweb="select"],
+    [data-baseweb="select"] {
+        background-color: #ffffff !important;
+    }
+    
+    .stSelectbox [data-baseweb="select"] > div,
+    [data-baseweb="select"] > div {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border: 1px solid #d1d5db !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Dropdown menu */
+    [data-baseweb="popover"],
+    [data-baseweb="menu"],
+    ul[role="listbox"] {
+        background-color: #ffffff !important;
+    }
+    
+    ul[role="listbox"] li {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+    }
+    
+    ul[role="listbox"] li:hover {
+        background-color: #f3f4f6 !important;
+    }
+    
+    /* File uploader */
+    [data-testid="stFileUploader"] {
+        background-color: #ffffff !important;
+        border-radius: 8px !important;
+    }
+    
+    [data-testid="stFileUploaderDropzone"] {
+        background-color: #ffffff !important;
+        border: 2px dashed #d1d5db !important;
+        border-radius: 8px !important;
+    }
+    
+    [data-testid="stFileUploaderDropzone"] * {
+        color: #374151 !important;
+    }
+    
+    /* ============================================
+       BOTÕES
+       ============================================ */
+    
+    /* Botão primário */
+    .stButton > button[kind="primary"] {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+    
+    .stButton > button[kind="primary"]:hover {
+        background-color: #1d4ed8 !important;
+    }
+    
+    /* Botão secundário */
+    .stButton > button[kind="secondary"] {
+        background-color: #ffffff !important;
+        color: #374151 !important;
+        border: 1px solid #d1d5db !important;
+    }
+    
+    .stButton > button[kind="secondary"]:hover {
+        background-color: #f3f4f6 !important;
+        border-color: #9ca3af !important;
+    }
+    
+    /* Todos os botões */
+    .stButton > button {
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        transition: all 0.2s !important;
+    }
+    
+    /* ============================================
+       TABELAS E DATAFRAMES
+       ============================================ */
+    
+    /* Cabeçalho da tabela */
+    [data-testid="stTable"] thead th,
+    .stDataFrame thead th,
+    [data-testid="stDataFrame"] thead th {
+        background-color: #f9fafb !important;
+        color: #374151 !important;
+        font-weight: 600 !important;
+        border-bottom: 2px solid #e5e7eb !important;
+    }
+    
+    /* Células da tabela */
+    [data-testid="stTable"] tbody td,
+    .stDataFrame tbody td,
+    [data-testid="stDataFrame"] tbody td {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border-bottom: 1px solid #f3f4f6 !important;
+    }
+    
+    /* Linhas alternadas */
+    .stDataFrame tbody tr:nth-child(even) td,
+    [data-testid="stDataFrame"] tbody tr:nth-child(even) td {
+        background-color: #fafbfc !important;
+    }
+    
+    /* Hover na linha */
+    .stDataFrame tbody tr:hover td,
+    [data-testid="stDataFrame"] tbody tr:hover td {
+        background-color: #f0f4ff !important;
+    }
+    
+    /* ============================================
+       DATA EDITOR
+       ============================================ */
+    
+    [data-testid="stDataEditor"] {
+        background-color: #ffffff !important;
+        border-radius: 12px !important;
+        border: 1px solid #e5e7eb !important;
+    }
+    
+    [data-testid="stDataEditor"] * {
+        color: #111827 !important;
+    }
+    
+    /* ============================================
+       EXPANDERS
+       ============================================ */
+    
+    details {
+        background-color: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 10px !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    details summary {
+        background-color: #ffffff !important;
+        color: #374151 !important;
+        font-weight: 600 !important;
+        padding: 0.8rem 1rem !important;
+        border-radius: 10px !important;
+        cursor: pointer !important;
+    }
+    
+    details[open] summary {
+        border-bottom: 1px solid #e5e7eb !important;
+        border-radius: 10px 10px 0 0 !important;
+    }
+    
+    details > div {
+        padding: 1rem !important;
+        background-color: #ffffff !important;
+    }
+    
+    /* ============================================
+       TABS
+       ============================================ */
+    
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background: var(--gray-100);
-        padding: 8px;
-        border-radius: 12px;
-        box-shadow: var(--sh-sm);
+        background-color: #f3f4f6 !important;
+        padding: 6px !important;
+        border-radius: 10px !important;
+        gap: 4px !important;
     }
+    
     .stTabs [data-baseweb="tab"] {
-        background: transparent;
-        border-radius: 8px;
-        padding: 10px 22px;
-        font-weight: 500;
-        color: var(--gray-600) !important;
-        border: none;
-        transition: all 0.2s;
-        font-size: 0.9rem;
+        background-color: transparent !important;
+        color: #6b7280 !important;
+        border-radius: 8px !important;
+        padding: 8px 20px !important;
+        font-weight: 500 !important;
     }
+    
     .stTabs [data-baseweb="tab"]:hover {
-        background: white;
-        color: var(--primary) !important;
-        box-shadow: var(--sh-sm);
+        background-color: #ffffff !important;
+        color: #2563eb !important;
     }
+    
     .stTabs [aria-selected="true"] {
-        background: white !important;
-        color: var(--primary) !important;
-        box-shadow: var(--sh-md) !important;
+        background-color: #ffffff !important;
+        color: #2563eb !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    }
+    
+    /* ============================================
+       MÉTRICAS E CARDS
+       ============================================ */
+    
+    /* st.metric */
+    [data-testid="stMetricValue"] {
+        color: #111827 !important;
+        font-size: 1.5rem !important;
         font-weight: 600 !important;
     }
-
-    /* ===== CARDS ===== */
+    
+    [data-testid="stMetricLabel"] {
+        color: #6b7280 !important;
+    }
+    
+    /* Cards customizados */
     .card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: var(--sh-sm);
-        border: 1px solid var(--gray-200);
-        transition: box-shadow 0.2s, transform 0.2s;
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 10px !important;
+        padding: 1.2rem !important;
+        transition: box-shadow 0.2s !important;
     }
+    
     .card:hover {
-        box-shadow: var(--sh-md);
-        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
     }
-    .card h3 {
-        color: var(--gray-900) !important;
-        font-size: 1.05rem;
-        font-weight: 600;
-        margin: 0 0 0.5rem 0;
+    
+    .metric-card {
+        text-align: center !important;
     }
-    .card p {
-        color: var(--gray-600) !important;
-        margin: 0;
-        font-size: 0.88rem;
-        line-height: 1.55;
-    }
-
-    /* ===== METRIC CARDS ===== */
-    .metric-card { text-align: center; }
+    
     .metric-value {
-        display: inline-block;
-        font-size: 2.4rem;
-        font-weight: 800;
-        line-height: 1;
-        /* gradient só no próprio span — não vaza para filhos */
-        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
+    
     .metric-label {
-        display: block;
-        margin-top: 0.4rem;
-        font-size: 0.78rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--gray-600) !important;
-        /* garante que NÃO herda o transparent do pai */
-        -webkit-text-fill-color: var(--gray-600) !important;
-        background: none !important;
-        -webkit-background-clip: unset !important;
-        background-clip: unset !important;
-    }
-
-    /* ===== BADGES ===== */
-    .badge {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 20px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
+        color: #6b7280 !important;
+        margin-top: 0.3rem;
     }
-    .badge-success { background:#d1fae5; color:#065f46 !important; }
-    .badge-warning { background:#fef3c7; color:#92400e !important; }
-    .badge-danger  { background:#fee2e2; color:#991b1b !important; }
-    .badge-info    { background:#dbeafe; color:#1e40af !important; }
-
-    /* ===== BOTÕES ===== */
-    .stButton > button {
-        border-radius: 8px;
-        font-weight: 500;
-        transition: all 0.2s;
+    
+    /* ============================================
+       APP HEADER
+       ============================================ */
+    
+    .app-header {
+        background: linear-gradient(135deg, #1e293b, #334155) !important;
+        padding: 1.5rem 2rem !important;
+        border-radius: 12px !important;
+        margin-bottom: 2rem !important;
     }
-    .stButton > button:hover {
-        transform: translateY(-1px);
-        box-shadow: var(--sh-md);
-    }
-
-    /* ===== SIDEBAR — base clara ===== */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #f8fafc 0%, #e8eef4 100%) !important;
-        border-right: 1px solid var(--gray-200);
-    }
-    /* Todos os textos da sidebar: escuros por padrão */
-    section[data-testid="stSidebar"],
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] div,
-    section[data-testid="stSidebar"] small,
-    section[data-testid="stSidebar"] li,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3,
-    section[data-testid="stSidebar"] h4 {
-        color: var(--gray-900) !important;
-        -webkit-text-fill-color: var(--gray-900) !important;
-    }
-
-    /* Caption / textos secundários da sidebar */
-    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
-    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {
-        color: var(--gray-600) !important;
-        -webkit-text-fill-color: var(--gray-600) !important;
-    }
-
-    /* st.metric na sidebar */
-    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
-        color: var(--primary) !important;
-        -webkit-text-fill-color: var(--primary) !important;
+    
+    .app-header h1 {
+        color: #ffffff !important;
+        font-size: 1.8rem;
         font-weight: 700;
-    }
-    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
-        color: var(--gray-600) !important;
-        -webkit-text-fill-color: var(--gray-600) !important;
-    }
-
-    /* File uploader na sidebar — reset da borda vermelha e fundo escuro */
-    section[data-testid="stSidebar"] [data-testid="stFileUploader"] {
-        background: white !important;
-        border-radius: 8px;
-    }
-    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
-        background: white !important;
-        border: 1.5px dashed var(--gray-300) !important;
-        border-radius: 8px !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]:hover {
-        border-color: var(--primary) !important;
-    }
-    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] *,
-    section[data-testid="stSidebar"] [data-testid="stFileUploader"] * {
-        color: var(--gray-700) !important;
-        -webkit-text-fill-color: var(--gray-700) !important;
-        background: transparent !important;
-    }
-    /* botão interno do uploader */
-    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
-        background: var(--primary) !important;
-        color: white !important;
-        -webkit-text-fill-color: white !important;
-        border-radius: 6px !important;
-    }
-
-    /* Divider na sidebar */
-    section[data-testid="stSidebar"] hr {
-        border-color: var(--gray-300) !important;
-        margin: 0.75rem 0 !important;
-    }
-
-    /* Expander na sidebar */
-    section[data-testid="stSidebar"] details summary,
-    section[data-testid="stSidebar"] details summary *,
-    section[data-testid="stSidebar"] details > div,
-    section[data-testid="stSidebar"] details > div * {
-        color: var(--gray-700) !important;
-        -webkit-text-fill-color: var(--gray-700) !important;
-        background: transparent !important;
-    }
-    section[data-testid="stSidebar"] details {
-        background: white !important;
-        border: 1px solid var(--gray-200) !important;
-        border-radius: 8px !important;
-        padding: 2px 0 !important;
-    }
-
-    /* Subheader dentro da sidebar */
-    section[data-testid="stSidebar"] [data-testid="stHeadingWithActionElements"] *,
-    section[data-testid="stSidebar"] [data-testid="stHeadingWithActionElements"] {
-        color: var(--gray-900) !important;
-        -webkit-text-fill-color: var(--gray-900) !important;
-    }
-
-    /* sidebar-header (HTML customizado) — fundo azul, texto branco */
-    .sidebar-header {
-        padding: 1rem 1.2rem;
-        background: var(--primary);
-        border-radius: 10px;
-        margin-bottom: 0.5rem;
-    }
-    .sidebar-header h2 {
-        color: white !important;
-        -webkit-text-fill-color: white !important;
         margin: 0;
-        font-size: 1.35rem;
     }
-    .sidebar-header p {
-        color: rgba(255,255,255,0.80) !important;
-        -webkit-text-fill-color: rgba(255,255,255,0.80) !important;
-        margin: 0.2rem 0 0 0;
-        font-size: 0.78rem;
+    
+    .app-header p {
+        color: #94a3b8 !important;
+        margin: 0.3rem 0 0 0;
+        font-size: 0.9rem;
     }
-
-    /* ===== EXPANDER GERAL ===== */
-    details {
-        background: white;
-        border: 1px solid var(--gray-200);
-        border-radius: 10px;
+    
+    /* ============================================
+       PROGRESS BAR
+       ============================================ */
+    
+    .stProgress > div {
+        background-color: #e5e7eb !important;
     }
-    details summary {
-        font-weight: 600;
-        color: var(--gray-700) !important;
-        padding: 0.75rem 1rem;
-        border-radius: 10px;
-        cursor: pointer;
-    }
-    details[open] summary {
-        border-bottom: 1px solid var(--gray-200);
-        border-radius: 10px 10px 0 0;
-    }
-    details > div {
-        padding: 0.75rem 1rem;
-        color: var(--gray-700) !important;
-    }
-
-    /* ===== DATA EDITOR ===== */
-    .stDataEditor {
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: var(--sh-md);
-    }
-
-    /* ===== PROGRESS BAR ===== */
+    
     .stProgress > div > div {
-        background: linear-gradient(90deg, var(--primary) 0%, #7c3aed 100%);
-        border-radius: 10px;
+        background: linear-gradient(90deg, #2563eb, #7c3aed) !important;
+        border-radius: 10px !important;
     }
+    
+    /* ============================================
+       MENSAGENS E ALERTAS
+       ============================================ */
+    
+    .stAlert {
+        border-radius: 10px !important;
+    }
+    
+    /* Success */
+    .stAlert[kind="success"] {
+        background-color: #f0fdf4 !important;
+        border-color: #86efac !important;
+        color: #166534 !important;
+    }
+    
+    /* Warning */
+    .stAlert[kind="warning"] {
+        background-color: #fefce8 !important;
+        border-color: #fde047 !important;
+        color: #854d0e !important;
+    }
+    
+    /* Error */
+    .stAlert[kind="error"] {
+        background-color: #fef2f2 !important;
+        border-color: #fca5a5 !important;
+        color: #991b1b !important;
+    }
+    
+    /* Info */
+    .stAlert[kind="info"] {
+        background-color: #eff6ff !important;
+        border-color: #93c5fd !important;
+        color: #1e40af !important;
+    }
+    
+    /* ============================================
+       TOASTS
+       ============================================ */
+    
+    [data-testid="stToast"] {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 10px !important;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    /* ============================================
+       SPINNER
+       ============================================ */
+    
+    .stSpinner > div {
+        border-color: #2563eb !important;
+    }
+    
+    /* ============================================
+       SCROLLBARS
+       ============================================ */
+    
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f3f4f6;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+    }
+    
+    /* ============================================
+       PLOTLY CHARTS
+       ============================================ */
+    
+    .js-plotly-plot .plotly .main-svg {
+        background: #ffffff !important;
+    }
+    
+    /* ============================================
+       HR / DIVIDERS
+       ============================================ */
+    
+    hr {
+        border-color: #e5e7eb !important;
+    }
+    
+    /* ============================================
+       RODAPÉ
+       ============================================ */
+    
+    footer {
+        visibility: hidden;
+    }
+    
     </style>
 """, unsafe_allow_html=True)
 
