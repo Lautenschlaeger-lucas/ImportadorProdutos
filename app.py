@@ -729,93 +729,105 @@ def executar_merge_procv(
     col_var_cliente: str | None = None,
 ) -> Tuple[pd.DataFrame, dict]:
     """
-    Merge com suporte a chave composta (ID Anúncio + ID Variação).
-
-    Prioridade:
-      1. Se a linha do sistema tiver ID Variação preenchido → busca por ID+Variação
-      2. Senão → busca só por ID (comportamento original)
-
-    Na planilha do cliente, linhas com variação preenchida formam chaves compostas;
-    linhas sem variação formam chaves simples.
+    Merge com suporte a chave composta (ID Anúncio + ID Variação) - VERSÃO CORRIGIDA.
     """
-    _LOOKUP = f"__sku_lookup__"
 
-    # ── Normalizar IDs ──────────────────────────────────────────────────────
+    _LOOKUP = "__sku_lookup__"
+
+    # Cópia segura
     df_s = df_sistema.copy()
     df_c = df_cliente.copy()
 
-    # ── Construir chaves no sistema ─────────────────────────────────────────
-    df_s["__chave_s__"] = _chave_composta(df_s, col_id_sistema, col_var_sistema)
+    # ─────────────────────────────────────────────────────────────
+    # 1. Garantir que colunas de ID são STRING (evita erro de dtype)
+    # ─────────────────────────────────────────────────────────────
+    df_s[col_id_sistema] = df_s[col_id_sistema].fillna("").astype(str).str.strip()
+    df_c[col_id_cliente] = df_c[col_id_cliente].fillna("").astype(str).str.strip()
 
-    # ── Construir lookup do cliente ─────────────────────────────────────────
-    # Cada linha do cliente pode gerar até duas entradas:
-    #   - chave composta (id||var)  quando variação preenchida
-    #   - chave simples  (id)       sempre (fallback)
-    df_c_base = df_c.dropna(subset=[col_id_cliente, col_sku_cliente]).copy()
-    df_c_base[col_id_cliente] = df_c_base[col_id_cliente].astype(str).str.strip()
+    if col_var_sistema and col_var_sistema in df_s.columns:
+        df_s[col_var_sistema] = df_s[col_var_sistema].fillna("").astype(str).str.strip()
+    if col_var_cliente and col_var_cliente in df_c.columns:
+        df_c[col_var_cliente] = df_c[col_var_cliente].fillna("").astype(str).str.strip()
 
+    # ─────────────────────────────────────────────────────────────
+    # 2. Construir chave composta no SISTEMA
+    # ─────────────────────────────────────────────────────────────
+    def build_key(row, id_col, var_col):
+        id_val = row[id_col]
+        if var_col and var_col in row and row[var_col] and row[var_col] != "":
+            return f"{id_val}||{row[var_col]}"
+        return id_val
+
+    df_s["__chave_s__"] = df_s.apply(
+        lambda row: build_key(row, col_id_sistema, col_var_sistema), axis=1
+    )
+
+    # ─────────────────────────────────────────────────────────────
+    # 3. Construir lookup no CLIENTE (prioridade composta, fallback simples)
+    # ─────────────────────────────────────────────────────────────
     entradas = []
 
-    if col_var_cliente and col_var_cliente in df_c_base.columns:
-        df_c_base["__var_c__"] = (
-            df_c_base[col_var_cliente].astype(str).str.strip()
-            .replace({"nan": "", "None": "", "0": ""})
-        )
-        # Linhas com variação → chave composta (prioridade)
-        com_var = df_c_base[df_c_base["__var_c__"] != ""].copy()
-        com_var["__chave_c__"] = com_var[col_id_cliente] + "||" + com_var["__var_c__"]
-        entradas.append(com_var[["__chave_c__", col_sku_cliente]])
+    # 3a. Chave composta (ID + Variação)
+    if col_var_cliente and col_var_cliente in df_c.columns:
+        composta = df_c[df_c[col_var_cliente] != ""].copy()
+        if not composta.empty:
+            composta["__chave_c__"] = composta[col_id_cliente] + "||" + composta[col_var_cliente]
+            entradas.append(composta[["__chave_c__", col_sku_cliente]])
 
-        # Linhas SEM variação → chave simples (fallback)
-        sem_var = df_c_base[df_c_base["__var_c__"] == ""].copy()
-        sem_var["__chave_c__"] = sem_var[col_id_cliente]
-        entradas.append(sem_var[["__chave_c__", col_sku_cliente]])
-    else:
-        # Sem coluna de variação: chave simples para tudo
-        df_c_base["__chave_c__"] = df_c_base[col_id_cliente]
-        entradas.append(df_c_base[["__chave_c__", col_sku_cliente]])
+    # 3b. Chave simples (apenas ID) para TODAS as linhas
+    simples = df_c.copy()
+    simples["__chave_c__"] = simples[col_id_cliente]
+    entradas.append(simples[["__chave_c__", col_sku_cliente]])
 
     df_lookup = pd.concat(entradas, ignore_index=True)
     df_lookup = df_lookup.drop_duplicates(subset=["__chave_c__"])
     df_lookup = df_lookup.rename(columns={col_sku_cliente: _LOOKUP})
 
-    # ── Merge ────────────────────────────────────────────────────────────────
+    # Garantir que a coluna de lookup é string
+    df_lookup[_LOOKUP] = df_lookup[_LOOKUP].fillna("").astype(str).str.strip()
+
+    # ─────────────────────────────────────────────────────────────
+    # 4. Merge
+    # ─────────────────────────────────────────────────────────────
     df_resultado = df_s.merge(
         df_lookup,
         left_on="__chave_s__",
         right_on="__chave_c__",
         how="left",
-        suffixes=("", "_drop"),
+        suffixes=("", "_drop")
     )
 
+    # Garantir coluna SKU destino
     if col_sku_sistema not in df_resultado.columns:
         df_resultado[col_sku_sistema] = ""
 
+    df_resultado[col_sku_sistema] = df_resultado[col_sku_sistema].fillna("").astype(str)
+    df_resultado[_LOOKUP] = df_resultado[_LOOKUP].fillna("").astype(str)
+
+    # Aplicar regra de preenchimento
     if sobrescrever:
-        df_resultado[col_sku_sistema] = df_resultado[_LOOKUP].fillna(df_resultado[col_sku_sistema])
-    else:
-        mask_vazio = (
-            df_resultado[col_sku_sistema].isna() |
-            (df_resultado[col_sku_sistema].astype(str).str.strip() == "")
+        df_resultado[col_sku_sistema] = df_resultado[_LOOKUP].where(
+            df_resultado[_LOOKUP] != "", df_resultado[col_sku_sistema]
         )
-        df_resultado.loc[mask_vazio, col_sku_sistema] = df_resultado.loc[mask_vazio, _LOOKUP]
+    else:
+        mascara_vazio = df_resultado[col_sku_sistema] == ""
+        df_resultado.loc[mascara_vazio, col_sku_sistema] = df_resultado.loc[mascara_vazio, _LOOKUP]
 
     # Limpar colunas auxiliares
-    df_resultado = df_resultado.drop(
-        columns=[c for c in ["__chave_s__", "__chave_c__", _LOOKUP] if c in df_resultado.columns],
-        errors="ignore",
-    )
+    colunas_remover = ["__chave_s__", "__chave_c__", _LOOKUP]
+    for col in colunas_remover:
+        if col in df_resultado.columns:
+            df_resultado.drop(columns=[col], inplace=True)
 
+    # Estatísticas
     total = len(df_resultado)
-    preenchidos = int(
-        (~df_resultado[col_sku_sistema].isna() &
-         (df_resultado[col_sku_sistema].astype(str).str.strip() != "")).sum()
-    )
+    preenchidos = int((df_resultado[col_sku_sistema] != "").sum())
+    nao_encontrados = total - preenchidos
 
     stats = {
         "total_linhas": total,
         "preenchidos": preenchidos,
-        "nao_encontrados": total - preenchidos,
+        "nao_encontrados": nao_encontrados,
         "taxa_sucesso": f"{(preenchidos / total * 100):.1f}%" if total > 0 else "N/A",
     }
 
@@ -1203,104 +1215,83 @@ with tab_editor:
 with tab_procv:
     st.header("🔗 PROCV — De/Para Automático")
     st.markdown(
-        "Combine dados de planilhas externas usando **ID do canal de venda** como chave. "
-        "O sistema preenche automaticamente os SKUs correspondentes."
+        "Preencha os SKUs da sua planilha principal a partir de uma **planilha do cliente**.\n\n"
+        "🔹 **Origem** = Planilha do Cliente (contém os SKUs corretos)\n"
+        "🔹 **Destino** = Sua planilha atual (receberá os SKUs)"
     )
 
-    st.caption("📤 Planilha do Cliente (fonte dos SKUs)")
-    ext_file = st.file_uploader(
-        "Planilha do Cliente",
+    st.divider()
+
+    # Upload da planilha fonte (cliente)
+    uploaded_cliente = st.file_uploader(
+        "📤 **Planilha de Origem (Cliente)**",
         type=["xlsx", "csv"],
-        key="ext_upload",
-        label_visibility="collapsed",
+        key="origem_procv",
+        help="Arquivo que contém a coluna com os SKUs corretos"
     )
 
-    if ext_file:
-        df_ext = ler_arquivo(ext_file)
+    if uploaded_cliente:
+        df_cliente = ler_arquivo(uploaded_cliente)
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Registros", f"{len(df_ext):,}")
-        c2.metric("Colunas", len(df_ext.columns))
-        c3.metric("Tamanho", f"{ext_file.size / 1024:.1f} KB")
+        col1, col2 = st.columns(2)
 
-        with st.expander("👁️ Preview da Planilha Fonte"):
-            st.dataframe(df_ext.head(10), use_container_width=True)
+        with col1:
+            st.markdown("### 🎯 Destino (Sistema)")
+            st.caption("Planilha que vai **receber** os SKUs")
+            col_id_sistema = st.selectbox(
+                "ID do Anúncio (Destino)",
+                st.session_state.df_principal.columns,
+                key="id_destino"
+            )
+            col_sku_sistema = st.selectbox(
+                "Coluna SKU (Destino)",
+                st.session_state.df_principal.columns,
+                key="sku_destino"
+            )
+
+        with col2:
+            st.markdown("### 📦 Origem (Cliente)")
+            st.caption("Planilha que **fornece** os SKUs")
+            col_id_cliente = st.selectbox(
+                "ID do Anúncio (Origem)",
+                df_cliente.columns,
+                key="id_origem"
+            )
+            col_sku_cliente = st.selectbox(
+                "Coluna SKU (Origem)",
+                df_cliente.columns,
+                key="sku_origem"
+            )
 
         st.divider()
-        st.subheader("⚙️ Configurar Mapeamento")
 
-        # ── Colunas obrigatórias ───────────────────────────────────────────
-        col_a, col_b = st.columns(2)
+        # Opcional: ID Variação
+        with st.expander("🔀 Chave de Variação (opcional)"):
+            st.caption("Use se precisar diferenciar variações de um mesmo produto")
+            cols_none = ["— não usar —"] + list(st.session_state.df_principal.columns)
+            cols_none_c = ["— não usar —"] + list(df_cliente.columns)
 
-        with col_a:
-            st.markdown("**🔵 Planilha do Sistema (Destino)**")
-            col_id_sistema  = st.selectbox("Coluna de ID do Anúncio", st.session_state.df_principal.columns, key="id_sistema")
-            col_sku_sistema = st.selectbox("Coluna SKU (destino)",    st.session_state.df_principal.columns, key="sku_sistema")
+            col_var_sistema = st.selectbox("Variação no Destino", cols_none, key="var_dest")
+            col_var_cliente = st.selectbox("Variação na Origem", cols_none_c, key="var_orig")
 
-        with col_b:
-            st.markdown("**🟢 Planilha do Cliente (Origem)**")
-            col_id_cliente  = st.selectbox("Coluna de ID do Anúncio", df_ext.columns, key="id_cliente")
-            col_sku_cliente = st.selectbox("Coluna SKU (origem)",     df_ext.columns, key="sku_cliente")
+            col_var_sistema = None if col_var_sistema == "— não usar —" else col_var_sistema
+            col_var_cliente = None if col_var_cliente == "— não usar —" else col_var_cliente
 
-        # ── Coluna de variação (opcional) ──────────────────────────────────
-        st.divider()
-        st.markdown("**🔀 Chave de Variação (opcional)**")
-        st.caption(
-            "Quando preenchido, o sistema usa **ID Anúncio + ID Variação** como chave composta. "
-            "Linhas sem variação continuam usando só o ID do Anúncio."
+        # Resumo visual
+        st.info(
+            f"🔁 **Mapeamento:**\n\n"
+            f"`{col_id_sistema}` (Destino) ↔ `{col_id_cliente}` (Origem)\n\n"
+            f"➜ Buscar `{col_sku_cliente}` (Origem) e copiar para `{col_sku_sistema}` (Destino)"
         )
 
-        cols_none_s = ["— não usar —"] + list(st.session_state.df_principal.columns)
-        cols_none_c = ["— não usar —"] + list(df_ext.columns)
-
-        cv_a, cv_b = st.columns(2)
-        with cv_a:
-            col_var_sistema_raw = st.selectbox(
-                "ID Variação — Sistema", cols_none_s, key="var_sistema",
-                help="Coluna de ID de variação na planilha do sistema"
-            )
-        with cv_b:
-            col_var_cliente_raw = st.selectbox(
-                "ID Variação — Cliente", cols_none_c, key="var_cliente",
-                help="Coluna de ID de variação na planilha do cliente"
-            )
-
-        col_var_sistema = None if col_var_sistema_raw == "— não usar —" else col_var_sistema_raw
-        col_var_cliente = None if col_var_cliente_raw == "— não usar —" else col_var_cliente_raw
-
-        # ── Info box dinâmico ──────────────────────────────────────────────
-        if col_var_sistema and col_var_cliente:
-            logica_txt = (
-                f"<code>Sistema.{col_id_sistema}</code> + <code>Sistema.{col_var_sistema}</code> "
-                f"↔ <code>Cliente.{col_id_cliente}</code> + <code>Cliente.{col_var_cliente}</code> "
-                f"→ <code>Cliente.{col_sku_cliente}</code> → <code>Sistema.{col_sku_sistema}</code><br>"
-                f"<small>⚡ Fallback automático: se variação não for encontrada, tenta só pelo ID do anúncio.</small>"
-            )
-        else:
-            logica_txt = (
-                f"<code>Sistema.{col_id_sistema}</code> ↔ <code>Cliente.{col_id_cliente}</code> "
-                f"→ <code>Cliente.{col_sku_cliente}</code> → <code>Sistema.{col_sku_sistema}</code>"
-            )
-
-        st.markdown(f'''
-            <div class="info-box">
-                🔗 <strong>Lógica:</strong> {logica_txt}
-            </div>
-        ''', unsafe_allow_html=True)
-
-        st.divider()
-        col_opt1, col_opt2 = st.columns(2)
-        with col_opt1:
-            sobrescrever = st.checkbox("🔄 Sobrescrever SKUs já preenchidos", value=False)
-        with col_opt2:
-            st.checkbox("🚫 Ignorar IDs não encontrados", value=True)
+        sobrescrever = st.checkbox("🔄 Sobrescrever SKUs já preenchidos no destino", value=False)
 
         if st.button("🚀 Executar PROCV", type="primary", use_container_width=True):
-            with st.spinner("Processando merge…"):
+            with st.spinner("Processando..."):
                 try:
-                    df_resultado, stats = executar_merge_procv(
+                    df_novo, stats = executar_merge_procv(
                         df_sistema=st.session_state.df_principal.copy(),
-                        df_cliente=df_ext,
+                        df_cliente=df_cliente,
                         col_id_sistema=col_id_sistema,
                         col_id_cliente=col_id_cliente,
                         col_sku_cliente=col_sku_cliente,
@@ -1309,47 +1300,31 @@ with tab_procv:
                         col_var_sistema=col_var_sistema,
                         col_var_cliente=col_var_cliente,
                     )
-                    st.session_state.df_principal = df_resultado
+
+                    st.session_state.df_principal = df_novo
                     st.session_state.df_erros_cache = None
                     st.success("✅ PROCV executado com sucesso!")
 
+                    # Resultados
                     r1, r2, r3 = st.columns(3)
                     r1.metric("✅ SKUs Preenchidos", f"{stats['preenchidos']:,}")
                     r2.metric("⚠️ Não Encontrados", f"{stats['nao_encontrados']:,}")
                     r3.metric("📊 Taxa de Sucesso", stats['taxa_sucesso'])
 
-                    fig = go.Figure(data=[go.Pie(
-                        labels=['Preenchidos', 'Não Encontrados'],
-                        values=[stats['preenchidos'], stats['nao_encontrados']],
-                        hole=.45,
-                        marker_colors=['#059669', '#f59e0b'],
-                        textinfo='label+percent',
-                    )])
-                    fig.update_layout(
-                        title="Resultado do PROCV",
-                        height=300,
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        font=dict(family="DM Sans"),
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-
                     if stats['nao_encontrados'] > 0:
-                        with st.expander(f"📋 {stats['nao_encontrados']} IDs sem match"):
-                            cols_sem = [col_id_sistema]
-                            if col_var_sistema and col_var_sistema in df_resultado.columns:
-                                cols_sem.append(col_var_sistema)
-                            sem_match = df_resultado[
-                                df_resultado[col_sku_sistema].isna() |
-                                (df_resultado[col_sku_sistema].astype(str).str.strip() == "")
-                            ][cols_sem]
-                            st.dataframe(sem_match, use_container_width=True)
+                        with st.expander(f"📋 IDs não encontrados ({stats['nao_encontrados']})"):
+                            sem_match = df_novo[
+                                (df_novo[col_sku_sistema] == "") |
+                                (df_novo[col_sku_sistema].isna())
+                            ][[col_id_sistema] + ([col_var_sistema] if col_var_sistema else [])]
+                            st.dataframe(sem_match.head(50), use_container_width=True)
 
                     st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Erro no merge: {str(e)}")
-    else:
-        st.info("👆 Faça upload da planilha do cliente para configurar o De-Para")
 
+                except Exception as e:
+                    st.error(f"❌ Erro no PROCV: {str(e)}")
+    else:
+        st.info("👈 **Comece fazendo o upload da planilha do cliente (origem)**")
 
 # ============================================================
 # ABA 4 — VALIDAÇÃO & ERROS
