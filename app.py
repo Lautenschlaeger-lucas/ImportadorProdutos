@@ -94,7 +94,17 @@ section[data-testid="stSidebar"] div,
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3 {
-    color: #e2e8f0 !important;
+    color: #cbd5e1 !important;
+}
+
+section[data-testid="stSidebar"] .sidebar-brand h2 {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}
+
+section[data-testid="stSidebar"] .sidebar-brand p {
+    color: #64748b !important;
+    -webkit-text-fill-color: #64748b !important;
 }
 
 /* Métricas na sidebar */
@@ -989,35 +999,52 @@ with tab_editor:
         if st.session_state.historico_alteracoes:
             st.info(f"🕒 {len(st.session_state.historico_alteracoes)} alterações nesta sessão")
 
-    # Configuração das colunas para o editor
-    column_config = {}
-    for col in df_atual.columns:
-        if col in colunas_bloqueadas:
-            # Somente leitura — sem configuração extra (o disabled cuida disso)
-            pass
-        elif normalizar_nome_col(col) == normalizar_nome_col("EAN"):
-            column_config[col] = st.column_config.TextColumn(
-                f"{col} 📊",
-                help="Código EAN (8, 12 ou 13 dígitos)",
+    # -------------------------------------------------------
+    # Preparar DataFrame para o editor:
+    # - Colunas editáveis de texto: converter para str (evita conflito de tipo)
+    # - "Kit quantidade": manter numérico se possível
+    # - Colunas bloqueadas: deixar como estão (somente leitura)
+    # -------------------------------------------------------
+    df_editor_input = df_atual.copy()
+
+    col_kit_real = resolver_coluna(df_editor_input, "Kit quantidade")
+    col_ean_real = resolver_coluna(df_editor_input, "EAN")
+
+    for col in colunas_edit_reais:
+        if col == col_kit_real:
+            # Tentar converter para numérico; NaN vira 0
+            df_editor_input[col] = pd.to_numeric(df_editor_input[col], errors='coerce').fillna(0).astype(int)
+        else:
+            # Converter para string limpa
+            df_editor_input[col] = (
+                df_editor_input[col]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+                .replace("nan", "")
+                .replace("None", "")
             )
-        elif normalizar_nome_col(col) == normalizar_nome_col("Kit quantidade"):
+
+    # column_config apenas para colunas editáveis com tipos bem definidos
+    column_config = {}
+    for col in colunas_edit_reais:
+        if col == col_kit_real:
             column_config[col] = st.column_config.NumberColumn(
-                f"{col} 📦",
+                col,
                 min_value=0,
                 step=1,
-                format="%d"
+                format="%d",
+                help="Quantidade do kit"
             )
         else:
             column_config[col] = st.column_config.TextColumn(col)
 
-    # -------------------------------------------------------
-    # DATA EDITOR — disabled recebe a lista de colunas bloqueadas
-    # -------------------------------------------------------
+    # DATA EDITOR
     df_editado = st.data_editor(
-        df_atual,
+        df_editor_input,
         use_container_width=True,
         num_rows="dynamic",
-        disabled=colunas_bloqueadas,   # <-- lista explícita, não booleano
+        disabled=colunas_bloqueadas,
         key="editor_principal",
         height=600,
         column_config=column_config,
