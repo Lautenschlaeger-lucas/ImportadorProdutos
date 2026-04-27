@@ -133,12 +133,36 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
 /* File uploader na sidebar */
 section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
     background-color: rgba(255,255,255,0.05) !important;
-    border: 2px dashed rgba(255,255,255,0.2) !important;
+    border: 1.5px dashed rgba(255,255,255,0.18) !important;
     border-radius: var(--radius-md) !important;
+    padding: 0.6rem !important;
 }
 
 section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] * {
-    color: #cbd5e1 !important;
+    color: #94a3b8 !important;
+    font-size: 0.78rem !important;
+}
+
+/* Esconde o ícone grande de upload na sidebar para economizar espaço */
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] > div > span {
+    display: none !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] > div > small {
+    font-size: 0.72rem !important;
+    color: #64748b !important;
+}
+
+/* Nome do arquivo carregado na sidebar */
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] {
+    background-color: rgba(255,255,255,0.06) !important;
+    border-radius: var(--radius-sm) !important;
+    padding: 0.3rem 0.5rem !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] * {
+    color: #94a3b8 !important;
+    font-size: 0.75rem !important;
 }
 
 /* Botões na sidebar */
@@ -161,18 +185,42 @@ section[data-testid="stSidebar"] details {
     background-color: rgba(255,255,255,0.04) !important;
     border: 1px solid rgba(255,255,255,0.08) !important;
     border-radius: var(--radius-md) !important;
+    overflow: visible !important;
 }
 
 section[data-testid="stSidebar"] details summary {
     color: #cbd5e1 !important;
-    font-size: 0.85rem !important;
+    font-size: 0.82rem !important;
+    padding: 0.6rem 0.75rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+section[data-testid="stSidebar"] details[open] {
+    overflow: visible !important;
+}
+
+section[data-testid="stSidebar"] details > div {
+    padding: 0.5rem 0.75rem 0.75rem !important;
 }
 
 section[data-testid="stSidebar"] details p,
 section[data-testid="stSidebar"] details li,
 section[data-testid="stSidebar"] details strong {
     color: #94a3b8 !important;
-    font-size: 0.82rem !important;
+    font-size: 0.78rem !important;
+    line-height: 1.55 !important;
+}
+
+/* Subheader na sidebar */
+section[data-testid="stSidebar"] h3 {
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.07em !important;
+    color: #64748b !important;
+    margin-bottom: 0.5rem !important;
 }
 
 /* =============================================
@@ -476,6 +524,12 @@ section[data-testid="stSidebar"] details strong {
     font-family: var(--font-mono) !important;
 }
 
+/* Oculta o botão "add row" do data_editor que vaza para fora da aba */
+section[data-testid="stSidebar"] [data-testid="stDataEditorAddRowButton"],
+[data-testid="stDataEditorAddRowButton"] {
+    display: none !important;
+}
+
 /* Sidebar header */
 .sidebar-brand {
     padding: 0.25rem 0 1rem;
@@ -653,6 +707,16 @@ def ler_arquivo(file) -> pd.DataFrame:
         st.stop()
 
 
+def _chave_composta(df: pd.DataFrame, col_id: str, col_var: str | None) -> pd.Series:
+    """Gera coluna de chave: 'id||variacao' se variacao preenchida, senão só 'id'."""
+    base = df[col_id].astype(str).str.strip()
+    if col_var is None or col_var not in df.columns:
+        return base
+    var = df[col_var].astype(str).str.strip().replace({"nan": "", "None": "", "0": ""})
+    # Onde variação está preenchida: id||var; caso contrário só id
+    return base.where(var == "", base + "||" + var)
+
+
 def executar_merge_procv(
     df_sistema: pd.DataFrame,
     df_cliente: pd.DataFrame,
@@ -660,47 +724,99 @@ def executar_merge_procv(
     col_id_cliente: str,
     col_sku_cliente: str,
     col_sku_sistema: str,
-    sobrescrever: bool = False
+    sobrescrever: bool = False,
+    col_var_sistema: str | None = None,
+    col_var_cliente: str | None = None,
 ) -> Tuple[pd.DataFrame, dict]:
-    df_sistema[col_id_sistema] = df_sistema[col_id_sistema].astype(str).str.strip()
-    df_cliente[col_id_cliente] = df_cliente[col_id_cliente].astype(str).str.strip()
+    """
+    Merge com suporte a chave composta (ID Anúncio + ID Variação).
 
-    df_lookup = df_cliente.dropna(subset=[col_id_cliente, col_sku_cliente])
-    df_lookup = df_lookup.drop_duplicates(subset=[col_id_cliente])[[col_id_cliente, col_sku_cliente]]
-    df_lookup = df_lookup.rename(columns={col_sku_cliente: f"{col_sku_sistema}_lookup"})
+    Prioridade:
+      1. Se a linha do sistema tiver ID Variação preenchido → busca por ID+Variação
+      2. Senão → busca só por ID (comportamento original)
 
-    df_resultado = df_sistema.merge(
+    Na planilha do cliente, linhas com variação preenchida formam chaves compostas;
+    linhas sem variação formam chaves simples.
+    """
+    _LOOKUP = f"__sku_lookup__"
+
+    # ── Normalizar IDs ──────────────────────────────────────────────────────
+    df_s = df_sistema.copy()
+    df_c = df_cliente.copy()
+
+    # ── Construir chaves no sistema ─────────────────────────────────────────
+    df_s["__chave_s__"] = _chave_composta(df_s, col_id_sistema, col_var_sistema)
+
+    # ── Construir lookup do cliente ─────────────────────────────────────────
+    # Cada linha do cliente pode gerar até duas entradas:
+    #   - chave composta (id||var)  quando variação preenchida
+    #   - chave simples  (id)       sempre (fallback)
+    df_c_base = df_c.dropna(subset=[col_id_cliente, col_sku_cliente]).copy()
+    df_c_base[col_id_cliente] = df_c_base[col_id_cliente].astype(str).str.strip()
+
+    entradas = []
+
+    if col_var_cliente and col_var_cliente in df_c_base.columns:
+        df_c_base["__var_c__"] = (
+            df_c_base[col_var_cliente].astype(str).str.strip()
+            .replace({"nan": "", "None": "", "0": ""})
+        )
+        # Linhas com variação → chave composta (prioridade)
+        com_var = df_c_base[df_c_base["__var_c__"] != ""].copy()
+        com_var["__chave_c__"] = com_var[col_id_cliente] + "||" + com_var["__var_c__"]
+        entradas.append(com_var[["__chave_c__", col_sku_cliente]])
+
+        # Linhas SEM variação → chave simples (fallback)
+        sem_var = df_c_base[df_c_base["__var_c__"] == ""].copy()
+        sem_var["__chave_c__"] = sem_var[col_id_cliente]
+        entradas.append(sem_var[["__chave_c__", col_sku_cliente]])
+    else:
+        # Sem coluna de variação: chave simples para tudo
+        df_c_base["__chave_c__"] = df_c_base[col_id_cliente]
+        entradas.append(df_c_base[["__chave_c__", col_sku_cliente]])
+
+    df_lookup = pd.concat(entradas, ignore_index=True)
+    df_lookup = df_lookup.drop_duplicates(subset=["__chave_c__"])
+    df_lookup = df_lookup.rename(columns={col_sku_cliente: _LOOKUP})
+
+    # ── Merge ────────────────────────────────────────────────────────────────
+    df_resultado = df_s.merge(
         df_lookup,
-        left_on=col_id_sistema,
-        right_on=col_id_cliente,
-        how='left',
-        suffixes=('', '_drop')
+        left_on="__chave_s__",
+        right_on="__chave_c__",
+        how="left",
+        suffixes=("", "_drop"),
     )
 
-    col_lookup = f"{col_sku_sistema}_lookup"
     if col_sku_sistema not in df_resultado.columns:
         df_resultado[col_sku_sistema] = ""
 
     if sobrescrever:
-        df_resultado[col_sku_sistema] = df_resultado[col_lookup].fillna(df_resultado[col_sku_sistema])
+        df_resultado[col_sku_sistema] = df_resultado[_LOOKUP].fillna(df_resultado[col_sku_sistema])
     else:
         mask_vazio = (
             df_resultado[col_sku_sistema].isna() |
             (df_resultado[col_sku_sistema].astype(str).str.strip() == "")
         )
-        df_resultado.loc[mask_vazio, col_sku_sistema] = df_resultado.loc[mask_vazio, col_lookup]
+        df_resultado.loc[mask_vazio, col_sku_sistema] = df_resultado.loc[mask_vazio, _LOOKUP]
 
-    df_resultado = df_resultado.drop(columns=[col_lookup, col_id_cliente], errors='ignore')
+    # Limpar colunas auxiliares
+    df_resultado = df_resultado.drop(
+        columns=[c for c in ["__chave_s__", "__chave_c__", _LOOKUP] if c in df_resultado.columns],
+        errors="ignore",
+    )
 
     total = len(df_resultado)
-    preenchidos = (~df_resultado[col_sku_sistema].isna() &
-                   (df_resultado[col_sku_sistema].astype(str).str.strip() != "")).sum()
+    preenchidos = int(
+        (~df_resultado[col_sku_sistema].isna() &
+         (df_resultado[col_sku_sistema].astype(str).str.strip() != "")).sum()
+    )
 
     stats = {
         "total_linhas": total,
-        "preenchidos": int(preenchidos),
-        "nao_encontrados": total - int(preenchidos),
-        "taxa_sucesso": f"{(preenchidos/total*100):.1f}%" if total > 0 else "N/A"
+        "preenchidos": preenchidos,
+        "nao_encontrados": total - preenchidos,
+        "taxa_sucesso": f"{(preenchidos / total * 100):.1f}%" if total > 0 else "N/A",
     }
 
     return df_resultado, stats
@@ -1043,7 +1159,7 @@ with tab_editor:
     df_editado = st.data_editor(
         df_editor_input,
         use_container_width=True,
-        num_rows="dynamic",
+        num_rows="fixed",
         disabled=colunas_bloqueadas,
         key="editor_principal",
         height=600,
@@ -1091,10 +1207,12 @@ with tab_procv:
         "O sistema preenche automaticamente os SKUs correspondentes."
     )
 
+    st.caption("📤 Planilha do Cliente (fonte dos SKUs)")
     ext_file = st.file_uploader(
-        "📤 Planilha do Cliente (fonte dos SKUs)",
+        "Planilha do Cliente",
         type=["xlsx", "csv"],
         key="ext_upload",
+        label_visibility="collapsed",
     )
 
     if ext_file:
@@ -1111,26 +1229,66 @@ with tab_procv:
         st.divider()
         st.subheader("⚙️ Configurar Mapeamento")
 
+        # ── Colunas obrigatórias ───────────────────────────────────────────
         col_a, col_b = st.columns(2)
 
         with col_a:
             st.markdown("**🔵 Planilha do Sistema (Destino)**")
-            col_id_sistema = st.selectbox("Coluna de ID", st.session_state.df_principal.columns, key="id_sistema")
-            col_sku_sistema = st.selectbox("Coluna SKU (destino)", st.session_state.df_principal.columns, key="sku_sistema")
+            col_id_sistema  = st.selectbox("Coluna de ID do Anúncio", st.session_state.df_principal.columns, key="id_sistema")
+            col_sku_sistema = st.selectbox("Coluna SKU (destino)",    st.session_state.df_principal.columns, key="sku_sistema")
 
         with col_b:
             st.markdown("**🟢 Planilha do Cliente (Origem)**")
-            col_id_cliente = st.selectbox("Coluna de ID", df_ext.columns, key="id_cliente")
-            col_sku_cliente = st.selectbox("Coluna SKU (origem)", df_ext.columns, key="sku_cliente")
+            col_id_cliente  = st.selectbox("Coluna de ID do Anúncio", df_ext.columns, key="id_cliente")
+            col_sku_cliente = st.selectbox("Coluna SKU (origem)",     df_ext.columns, key="sku_cliente")
 
-        st.markdown(f"""
+        # ── Coluna de variação (opcional) ──────────────────────────────────
+        st.divider()
+        st.markdown("**🔀 Chave de Variação (opcional)**")
+        st.caption(
+            "Quando preenchido, o sistema usa **ID Anúncio + ID Variação** como chave composta. "
+            "Linhas sem variação continuam usando só o ID do Anúncio."
+        )
+
+        cols_none_s = ["— não usar —"] + list(st.session_state.df_principal.columns)
+        cols_none_c = ["— não usar —"] + list(df_ext.columns)
+
+        cv_a, cv_b = st.columns(2)
+        with cv_a:
+            col_var_sistema_raw = st.selectbox(
+                "ID Variação — Sistema", cols_none_s, key="var_sistema",
+                help="Coluna de ID de variação na planilha do sistema"
+            )
+        with cv_b:
+            col_var_cliente_raw = st.selectbox(
+                "ID Variação — Cliente", cols_none_c, key="var_cliente",
+                help="Coluna de ID de variação na planilha do cliente"
+            )
+
+        col_var_sistema = None if col_var_sistema_raw == "— não usar —" else col_var_sistema_raw
+        col_var_cliente = None if col_var_cliente_raw == "— não usar —" else col_var_cliente_raw
+
+        # ── Info box dinâmico ──────────────────────────────────────────────
+        if col_var_sistema and col_var_cliente:
+            logica_txt = (
+                f"<code>Sistema.{col_id_sistema}</code> + <code>Sistema.{col_var_sistema}</code> "
+                f"↔ <code>Cliente.{col_id_cliente}</code> + <code>Cliente.{col_var_cliente}</code> "
+                f"→ <code>Cliente.{col_sku_cliente}</code> → <code>Sistema.{col_sku_sistema}</code><br>"
+                f"<small>⚡ Fallback automático: se variação não for encontrada, tenta só pelo ID do anúncio.</small>"
+            )
+        else:
+            logica_txt = (
+                f"<code>Sistema.{col_id_sistema}</code> ↔ <code>Cliente.{col_id_cliente}</code> "
+                f"→ <code>Cliente.{col_sku_cliente}</code> → <code>Sistema.{col_sku_sistema}</code>"
+            )
+
+        st.markdown(f'''
             <div class="info-box">
-                🔗 <strong>Lógica:</strong>
-                <code>Sistema.{col_id_sistema}</code> ↔ <code>Cliente.{col_id_cliente}</code>
-                → <code>Cliente.{col_sku_cliente}</code> → <code>Sistema.{col_sku_sistema}</code>
+                🔗 <strong>Lógica:</strong> {logica_txt}
             </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
 
+        st.divider()
         col_opt1, col_opt2 = st.columns(2)
         with col_opt1:
             sobrescrever = st.checkbox("🔄 Sobrescrever SKUs já preenchidos", value=False)
@@ -1147,7 +1305,9 @@ with tab_procv:
                         col_id_cliente=col_id_cliente,
                         col_sku_cliente=col_sku_cliente,
                         col_sku_sistema=col_sku_sistema,
-                        sobrescrever=sobrescrever
+                        sobrescrever=sobrescrever,
+                        col_var_sistema=col_var_sistema,
+                        col_var_cliente=col_var_cliente,
                     )
                     st.session_state.df_principal = df_resultado
                     st.session_state.df_erros_cache = None
@@ -1175,10 +1335,13 @@ with tab_procv:
 
                     if stats['nao_encontrados'] > 0:
                         with st.expander(f"📋 {stats['nao_encontrados']} IDs sem match"):
+                            cols_sem = [col_id_sistema]
+                            if col_var_sistema and col_var_sistema in df_resultado.columns:
+                                cols_sem.append(col_var_sistema)
                             sem_match = df_resultado[
                                 df_resultado[col_sku_sistema].isna() |
                                 (df_resultado[col_sku_sistema].astype(str).str.strip() == "")
-                            ][[col_id_sistema]]
+                            ][cols_sem]
                             st.dataframe(sem_match, use_container_width=True)
 
                     st.rerun()
