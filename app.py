@@ -19,331 +19,329 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CSS PROFISSIONAL CORRIGIDO ---
+# --- CSS PROFISSIONAL — REFINADO TOTAL ---
 st.markdown("""
     <style>
-    /* ========== DESIGN SYSTEM ========== */
+    /* ===== DESIGN TOKENS ===== */
     :root {
-        --primary: #2563eb;
-        --primary-dark: #1d4ed8;
-        --success: #059669;
-        --warning: #d97706;
-        --danger: #dc2626;
-        --gray-50: #f9fafb;
-        --gray-100: #f3f4f6;
-        --gray-200: #e5e7eb;
-        --gray-600: #4b5563;
-        --gray-700: #374151;
-        --gray-900: #111827;
-        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        --primary:    #2563eb;
+        --primary-dk: #1d4ed8;
+        --success:    #059669;
+        --warning:    #d97706;
+        --danger:     #dc2626;
+        --gray-50:    #f9fafb;
+        --gray-100:   #f3f4f6;
+        --gray-200:   #e5e7eb;
+        --gray-300:   #d1d5db;
+        --gray-600:   #4b5563;
+        --gray-700:   #374151;
+        --gray-900:   #111827;
+        --sh-sm: 0 1px 2px 0 rgb(0 0 0/.05);
+        --sh-md: 0 4px 6px -1px rgb(0 0 0/.10);
+        --sh-lg: 0 10px 15px -3px rgb(0 0 0/.10);
     }
 
-    /* ========== GLOBAL STYLES ========== */
+    /* ===== GLOBAL RESET para -webkit-text-fill-color ===== */
+    /* Streamlit às vezes herda transparent de ancestral — zeramos tudo */
+    .stApp, .stApp * {
+        -webkit-text-fill-color: unset;
+    }
+
+    /* ===== LAYOUT ===== */
     .main .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
         max-width: 1400px;
     }
-
     .stApp {
         background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
     }
 
-    /* ========== HEADER ========== */
+    /* ===== TIPOGRAFIA GERAL ===== */
+    body, p, span, label, div,
+    h1, h2, h3, h4, h5, h6,
+    .stMarkdown, [data-testid="stMarkdownContainer"] {
+        color: var(--gray-900);
+    }
+
+    /* ===== APP HEADER ===== */
     .app-header {
         background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-        color: white;
         padding: 1.5rem 2rem;
         border-radius: 12px;
         margin-bottom: 2rem;
-        box-shadow: var(--shadow-lg);
+        box-shadow: var(--sh-lg);
     }
     .app-header h1 {
-        color: white !important;
-        -webkit-text-fill-color: white !important;
+        color: #ffffff !important;
         font-size: 2rem;
         font-weight: 700;
         margin: 0;
     }
     .app-header p {
         color: #94a3b8 !important;
-        -webkit-text-fill-color: #94a3b8 !important;
         margin: 0.5rem 0 0 0;
         font-size: 0.9rem;
     }
 
-    /* ========== TABS AVANÇADAS ========== */
+    /* ===== TABS ===== */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
         background: var(--gray-100);
         padding: 8px;
         border-radius: 12px;
-        box-shadow: var(--shadow-sm);
+        box-shadow: var(--sh-sm);
     }
     .stTabs [data-baseweb="tab"] {
         background: transparent;
         border-radius: 8px;
-        padding: 12px 24px;
+        padding: 10px 22px;
         font-weight: 500;
         color: var(--gray-600) !important;
-        -webkit-text-fill-color: var(--gray-600) !important;
         border: none;
-        transition: all 0.3s;
-        font-size: 0.95rem;
+        transition: all 0.2s;
+        font-size: 0.9rem;
     }
     .stTabs [data-baseweb="tab"]:hover {
         background: white;
         color: var(--primary) !important;
-        -webkit-text-fill-color: var(--primary) !important;
-        box-shadow: var(--shadow-sm);
+        box-shadow: var(--sh-sm);
     }
     .stTabs [aria-selected="true"] {
         background: white !important;
         color: var(--primary) !important;
-        -webkit-text-fill-color: var(--primary) !important;
-        box-shadow: var(--shadow-md) !important;
+        box-shadow: var(--sh-md) !important;
         font-weight: 600 !important;
     }
 
-    /* ========== CARDS & METRICS ========== */
+    /* ===== CARDS ===== */
     .card {
         background: white;
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: var(--shadow-sm);
+        box-shadow: var(--sh-sm);
         border: 1px solid var(--gray-200);
-        transition: all 0.3s;
-        color: var(--gray-900);
+        transition: box-shadow 0.2s, transform 0.2s;
     }
     .card:hover {
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--sh-md);
         transform: translateY(-2px);
     }
-
-    /* FIX: Garantir que texto dentro de cards seja visível */
     .card h3 {
         color: var(--gray-900) !important;
-        -webkit-text-fill-color: var(--gray-900) !important;
-        background: none !important;
-        -webkit-background-clip: unset !important;
-        background-clip: unset !important;
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: 600;
         margin: 0 0 0.5rem 0;
     }
     .card p {
         color: var(--gray-600) !important;
-        -webkit-text-fill-color: var(--gray-600) !important;
-        background: none !important;
-        -webkit-background-clip: unset !important;
-        background-clip: unset !important;
         margin: 0;
-        font-size: 0.9rem;
-        line-height: 1.5;
+        font-size: 0.88rem;
+        line-height: 1.55;
     }
 
-    .metric-card {
-        text-align: center;
-        padding: 1.5rem;
-    }
-
-    /* FIX: metric-value isolado para não vazar o gradient clip para filhos */
+    /* ===== METRIC CARDS ===== */
+    .metric-card { text-align: center; }
     .metric-value {
         display: inline-block;
-        font-size: 2.5rem;
+        font-size: 2.4rem;
         font-weight: 800;
-        color: var(--primary);
-        background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
+        line-height: 1;
+        /* gradient só no próprio span — não vaza para filhos */
+        background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        line-height: 1;
     }
     .metric-label {
         display: block;
-        color: var(--gray-600) !important;
-        -webkit-text-fill-color: var(--gray-600) !important;
-        background: none !important;
-        -webkit-background-clip: unset !important;
-        background-clip: unset !important;
-        font-size: 0.85rem;
-        font-weight: 500;
-        margin-top: 0.5rem;
+        margin-top: 0.4rem;
+        font-size: 0.78rem;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    /* FIX: stMarkdownContainer — reset global para não herdar clip de pai */
-    [data-testid="stMarkdownContainer"] {
-        -webkit-text-fill-color: unset;
-        background-clip: unset;
-        -webkit-background-clip: unset;
-    }
-    [data-testid="stMarkdownContainer"] .card {
-        background: white !important;
-        display: block;
-    }
-    [data-testid="stMarkdownContainer"] .card h3,
-    [data-testid="stMarkdownContainer"] .card p {
-        color: var(--gray-900) !important;
-        -webkit-text-fill-color: var(--gray-900) !important;
+        letter-spacing: 0.06em;
+        color: var(--gray-600) !important;
+        /* garante que NÃO herda o transparent do pai */
+        -webkit-text-fill-color: var(--gray-600) !important;
         background: none !important;
         -webkit-background-clip: unset !important;
         background-clip: unset !important;
     }
-    [data-testid="stMarkdownContainer"] .card p {
-        color: var(--gray-600) !important;
-        -webkit-text-fill-color: var(--gray-600) !important;
-    }
 
-    /* ========== BADGES ========== */
+    /* ===== BADGES ===== */
     .badge {
         display: inline-block;
-        padding: 4px 12px;
+        padding: 3px 10px;
         border-radius: 20px;
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
     }
-    .badge-success {
-        background: #d1fae5;
-        color: #065f46 !important;
-        -webkit-text-fill-color: #065f46 !important;
-    }
-    .badge-warning {
-        background: #fef3c7;
-        color: #92400e !important;
-        -webkit-text-fill-color: #92400e !important;
-    }
-    .badge-danger {
-        background: #fee2e2;
-        color: #991b1b !important;
-        -webkit-text-fill-color: #991b1b !important;
-    }
-    .badge-info {
-        background: #dbeafe;
-        color: #1e40af !important;
-        -webkit-text-fill-color: #1e40af !important;
-    }
+    .badge-success { background:#d1fae5; color:#065f46 !important; }
+    .badge-warning { background:#fef3c7; color:#92400e !important; }
+    .badge-danger  { background:#fee2e2; color:#991b1b !important; }
+    .badge-info    { background:#dbeafe; color:#1e40af !important; }
 
-    /* ========== BUTTONS ========== */
+    /* ===== BOTÕES ===== */
     .stButton > button {
         border-radius: 8px;
         font-weight: 500;
-        transition: all 0.3s;
-        padding: 0.5rem 1.5rem;
+        transition: all 0.2s;
     }
     .stButton > button:hover {
         transform: translateY(-1px);
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--sh-md);
     }
 
-    /* ========== SIDEBAR CORRIGIDA ========== */
+    /* ===== SIDEBAR — base clara ===== */
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%) !important;
+        background: linear-gradient(180deg, #f8fafc 0%, #e8eef4 100%) !important;
         border-right: 1px solid var(--gray-200);
     }
-
-    /* FIX: Forçar cor de texto para todos os elementos da sidebar */
-    section[data-testid="stSidebar"] * {
-        color: var(--gray-900) !important;
-        -webkit-text-fill-color: var(--gray-900) !important;
-    }
-
-    /* FIX: Exceção para o header da sidebar (fundo azul = texto branco) */
-    section[data-testid="stSidebar"] .sidebar-header,
-    section[data-testid="stSidebar"] .sidebar-header * {
-        color: white !important;
-        -webkit-text-fill-color: white !important;
-    }
-
-    /* FIX: st.metric dentro da sidebar */
-    section[data-testid="stSidebar"] [data-testid="stMetricValue"],
-    section[data-testid="stSidebar"] [data-testid="stMetricLabel"],
-    section[data-testid="stSidebar"] [data-testid="stMetricDelta"] {
-        color: var(--gray-900) !important;
-        -webkit-text-fill-color: var(--gray-900) !important;
-    }
-
-    /* FIX: File uploader labels na sidebar */
-    section[data-testid="stSidebar"] [data-testid="stFileUploader"] label,
-    section[data-testid="stSidebar"] [data-testid="stFileUploader"] span,
-    section[data-testid="stSidebar"] [data-testid="stFileUploader"] p,
-    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] * {
-        color: var(--gray-700) !important;
-        -webkit-text-fill-color: var(--gray-700) !important;
-    }
-
-    /* FIX: Caption e textos menores da sidebar */
-    section[data-testid="stSidebar"] .stCaption,
+    /* Todos os textos da sidebar: escuros por padrão */
+    section[data-testid="stSidebar"],
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] div,
     section[data-testid="stSidebar"] small,
-    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+    section[data-testid="stSidebar"] li,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4 {
+        color: var(--gray-900) !important;
+        -webkit-text-fill-color: var(--gray-900) !important;
+    }
+
+    /* Caption / textos secundários da sidebar */
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {
         color: var(--gray-600) !important;
         -webkit-text-fill-color: var(--gray-600) !important;
     }
 
-    /* FIX: Divider visível na sidebar */
+    /* st.metric na sidebar */
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+        color: var(--primary) !important;
+        -webkit-text-fill-color: var(--primary) !important;
+        font-weight: 700;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] {
+        color: var(--gray-600) !important;
+        -webkit-text-fill-color: var(--gray-600) !important;
+    }
+
+    /* File uploader na sidebar — reset da borda vermelha e fundo escuro */
+    section[data-testid="stSidebar"] [data-testid="stFileUploader"] {
+        background: white !important;
+        border-radius: 8px;
+    }
+    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+        background: white !important;
+        border: 1.5px dashed var(--gray-300) !important;
+        border-radius: 8px !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"]:hover {
+        border-color: var(--primary) !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] *,
+    section[data-testid="stSidebar"] [data-testid="stFileUploader"] * {
+        color: var(--gray-700) !important;
+        -webkit-text-fill-color: var(--gray-700) !important;
+        background: transparent !important;
+    }
+    /* botão interno do uploader */
+    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button {
+        background: var(--primary) !important;
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+        border-radius: 6px !important;
+    }
+
+    /* Divider na sidebar */
     section[data-testid="stSidebar"] hr {
         border-color: var(--gray-300) !important;
-        opacity: 0.6;
+        margin: 0.75rem 0 !important;
     }
 
-    /* FIX: Expander na sidebar */
-    section[data-testid="stSidebar"] .streamlit-expanderHeader,
-    section[data-testid="stSidebar"] .streamlit-expanderHeader * {
+    /* Expander na sidebar */
+    section[data-testid="stSidebar"] details summary,
+    section[data-testid="stSidebar"] details summary *,
+    section[data-testid="stSidebar"] details > div,
+    section[data-testid="stSidebar"] details > div * {
         color: var(--gray-700) !important;
         -webkit-text-fill-color: var(--gray-700) !important;
+        background: transparent !important;
+    }
+    section[data-testid="stSidebar"] details {
+        background: white !important;
+        border: 1px solid var(--gray-200) !important;
+        border-radius: 8px !important;
+        padding: 2px 0 !important;
     }
 
-    section[data-testid="stSidebar"] .streamlit-expanderContent,
-    section[data-testid="stSidebar"] .streamlit-expanderContent * {
-        color: var(--gray-700) !important;
-        -webkit-text-fill-color: var(--gray-700) !important;
+    /* Subheader dentro da sidebar */
+    section[data-testid="stSidebar"] [data-testid="stHeadingWithActionElements"] *,
+    section[data-testid="stSidebar"] [data-testid="stHeadingWithActionElements"] {
+        color: var(--gray-900) !important;
+        -webkit-text-fill-color: var(--gray-900) !important;
     }
 
+    /* sidebar-header (HTML customizado) — fundo azul, texto branco */
     .sidebar-header {
-        padding: 1rem;
+        padding: 1rem 1.2rem;
         background: var(--primary);
-        color: white !important;
-        border-radius: 8px;
-        margin-bottom: 1rem;
+        border-radius: 10px;
+        margin-bottom: 0.5rem;
     }
     .sidebar-header h2 {
         color: white !important;
         -webkit-text-fill-color: white !important;
+        margin: 0;
+        font-size: 1.35rem;
     }
     .sidebar-header p {
-        color: rgba(255,255,255,0.85) !important;
-        -webkit-text-fill-color: rgba(255,255,255,0.85) !important;
+        color: rgba(255,255,255,0.80) !important;
+        -webkit-text-fill-color: rgba(255,255,255,0.80) !important;
+        margin: 0.2rem 0 0 0;
+        font-size: 0.78rem;
     }
 
-    /* ========== DATA EDITOR ========== */
+    /* ===== EXPANDER GERAL ===== */
+    details {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 10px;
+    }
+    details summary {
+        font-weight: 600;
+        color: var(--gray-700) !important;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+    details[open] summary {
+        border-bottom: 1px solid var(--gray-200);
+        border-radius: 10px 10px 0 0;
+    }
+    details > div {
+        padding: 0.75rem 1rem;
+        color: var(--gray-700) !important;
+    }
+
+    /* ===== DATA EDITOR ===== */
     .stDataEditor {
         border-radius: 12px;
         overflow: hidden;
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--sh-md);
     }
 
-    /* ========== PROGRESS BAR ========== */
+    /* ===== PROGRESS BAR ===== */
     .stProgress > div > div {
         background: linear-gradient(90deg, var(--primary) 0%, #7c3aed 100%);
         border-radius: 10px;
-    }
-
-    /* ========== EXPANDER ========== */
-    .streamlit-expanderHeader {
-        font-weight: 600;
-        color: var(--gray-700) !important;
-        -webkit-text-fill-color: var(--gray-700) !important;
-    }
-
-    /* ========== SUBHEADER / HEADER TEXTS ========== */
-    h1, h2, h3, h4 {
-        color: var(--gray-900) !important;
-        -webkit-text-fill-color: var(--gray-900) !important;
     }
     </style>
 """, unsafe_allow_html=True)
