@@ -1230,6 +1230,12 @@ with tab_procv:
         help="Arquivo que contém a coluna com os SKUs corretos"
     )
 
+    # Inicializar estado do último PROCV
+    if "ultimo_procv_stats" not in st.session_state:
+        st.session_state.ultimo_procv_stats = None
+    if "ultimo_procv_nao_encontrados" not in st.session_state:
+        st.session_state.ultimo_procv_nao_encontrados = None
+
     if uploaded_cliente:
         df_cliente = ler_arquivo(uploaded_cliente)
 
@@ -1286,6 +1292,7 @@ with tab_procv:
 
         sobrescrever = st.checkbox("🔄 Sobrescrever SKUs já preenchidos no destino", value=False)
 
+        # Botão para executar PROCV
         if st.button("🚀 Executar PROCV", type="primary", use_container_width=True):
             with st.spinner("Processando..."):
                 try:
@@ -1301,30 +1308,88 @@ with tab_procv:
                         col_var_cliente=col_var_cliente,
                     )
 
+                    # Salvar no session_state
                     st.session_state.df_principal = df_novo
                     st.session_state.df_erros_cache = None
-                    st.success("✅ PROCV executado com sucesso!")
-
-                    # Resultados
-                    r1, r2, r3 = st.columns(3)
-                    r1.metric("✅ SKUs Preenchidos", f"{stats['preenchidos']:,}")
-                    r2.metric("⚠️ Não Encontrados", f"{stats['nao_encontrados']:,}")
-                    r3.metric("📊 Taxa de Sucesso", stats['taxa_sucesso'])
-
+                    st.session_state.ultimo_procv_stats = stats
+                    
+                    # Guardar IDs não encontrados para exibição
                     if stats['nao_encontrados'] > 0:
-                        with st.expander(f"📋 IDs não encontrados ({stats['nao_encontrados']})"):
-                            sem_match = df_novo[
-                                (df_novo[col_sku_sistema] == "") |
-                                (df_novo[col_sku_sistema].isna())
-                            ][[col_id_sistema] + ([col_var_sistema] if col_var_sistema else [])]
-                            st.dataframe(sem_match.head(50), use_container_width=True)
-
-                    st.rerun()
-
+                        cols_id = [col_id_sistema]
+                        if col_var_sistema:
+                            cols_id.append(col_var_sistema)
+                        nao_encontrados_df = df_novo[
+                            (df_novo[col_sku_sistema] == "") | 
+                            (df_novo[col_sku_sistema].isna()) |
+                            (df_novo[col_sku_sistema].astype(str).str.strip() == "")
+                        ][cols_id].copy()
+                        st.session_state.ultimo_procv_nao_encontrados = nao_encontrados_df
+                    else:
+                        st.session_state.ultimo_procv_nao_encontrados = None
+                    
+                    st.success("✅ PROCV executado com sucesso!")
+                    
                 except Exception as e:
                     st.error(f"❌ Erro no PROCV: {str(e)}")
+                    st.session_state.ultimo_procv_stats = None
+
+        # ─────────────────────────────────────────────────────────────
+        # EXIBIR RESULTADOS (mesmo após rerun)
+        # ─────────────────────────────────────────────────────────────
+        if st.session_state.ultimo_procv_stats:
+            stats = st.session_state.ultimo_procv_stats
+            
+            st.divider()
+            st.subheader("📊 Resultado do PROCV")
+            
+            r1, r2, r3 = st.columns(3)
+            with r1:
+                st.metric("✅ SKUs Preenchidos", f"{stats['preenchidos']:,}")
+            with r2:
+                st.metric("⚠️ Não Encontrados", f"{stats['nao_encontrados']:,}")
+            with r3:
+                st.metric("📊 Taxa de Sucesso", stats['taxa_sucesso'])
+            
+            # Gráfico de pizza
+            if stats['total_linhas'] > 0:
+                fig = go.Figure(data=[go.Pie(
+                    labels=['Preenchidos', 'Não Encontrados'],
+                    values=[stats['preenchidos'], stats['nao_encontrados']],
+                    hole=0.4,
+                    marker_colors=['#059669', '#f59e0b'],
+                    textinfo='label+percent',
+                )])
+                fig.update_layout(
+                    height=300,
+                    margin=dict(t=20, b=20, l=20, r=20),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(family="DM Sans"),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # Exibir não encontrados
+            if st.session_state.ultimo_procv_nao_encontrados is not None and len(st.session_state.ultimo_procv_nao_encontrados) > 0:
+                with st.expander(f"📋 IDs não encontrados ({len(st.session_state.ultimo_procv_nao_encontrados)})"):
+                    st.dataframe(
+                        st.session_state.ultimo_procv_nao_encontrados.head(100),
+                        use_container_width=True,
+                        height=300
+                    )
+                    st.caption("⚠️ Esses IDs não tinham correspondência na planilha do cliente")
+            
+            # Botão para limpar resultados (opcional)
+            if st.button("🗑️ Limpar resultados", use_container_width=True):
+                st.session_state.ultimo_procv_stats = None
+                st.session_state.ultimo_procv_nao_encontrados = None
+                st.rerun()
+    
     else:
         st.info("👈 **Comece fazendo o upload da planilha do cliente (origem)**")
+        
+        # Limpar resultados antigos quando não há arquivo
+        if st.session_state.ultimo_procv_stats is not None:
+            st.session_state.ultimo_procv_stats = None
+            st.session_state.ultimo_procv_nao_encontrados = None
 
 # ============================================================
 # ABA 4 — VALIDAÇÃO & ERROS
