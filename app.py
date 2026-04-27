@@ -55,7 +55,8 @@ st.markdown("""
    BASE - SEM FORÇAR CORES EM TUDO
    ============================================= */
 html, body, .stApp {
-    font-family: var(--font) !important;
+    /* Sem o !important aqui para permitir que os ícones usem a própria fonte */
+    font-family: var(--font); 
     background-color: var(--bg-primary) !important;
 }
 
@@ -65,18 +66,20 @@ html, body, .stApp {
     max-width: 1440px !important;
 }
 
-/* Texto base — protegendo os ícones internos do Streamlit */
-p, label {
-    font-family: var(--font) !important;
-}
-/* Evita sobrescrever a fonte Material Symbols do Streamlit */
-span:not(.material-symbols-rounded), div:not(.material-symbols-rounded) {
-    font-family: var(--font);
-}
-
-h1, h2, h3, h4, h5, h6 {
+/* Forçar a fonte customizada apenas em textos reais */
+h1, h2, h3, h4, h5, h6, p, label, li {
     font-family: var(--font) !important;
     color: var(--text-primary) !important;
+}
+
+/* 🛡️ BLINDAGEM DOS ÍCONES DO STREAMLIT (Resolve os textos vazando) */
+.material-symbols-rounded, 
+[data-testid="stIconMaterial"], 
+.stIcon, 
+span[class*="material"] {
+    font-family: "Material Symbols Rounded" !important;
+    font-weight: normal !important;
+    letter-spacing: normal !important;
 }
 
 /* =============================================
