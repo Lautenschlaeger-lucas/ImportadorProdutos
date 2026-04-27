@@ -1313,6 +1313,10 @@ with tab_procv:
                     st.session_state.df_erros_cache = None
                     st.session_state.ultimo_procv_stats = stats
                     
+                    # ---> CORREÇÃO 1: Limpar o estado interno do editor para ele não "segurar" o dado velho
+                    if "editor_principal" in st.session_state:
+                        del st.session_state["editor_principal"]
+                    
                     # Guardar IDs não encontrados para exibição
                     if stats['nao_encontrados'] > 0:
                         cols_id = [col_id_sistema]
@@ -1327,7 +1331,11 @@ with tab_procv:
                     else:
                         st.session_state.ultimo_procv_nao_encontrados = None
                     
-                    st.success("✅ PROCV executado com sucesso!")
+                    # ---> CORREÇÃO 2: Trocado de st.success para st.toast (pois o rerun faria o success sumir instantaneamente)
+                    st.toast("✅ PROCV executado com sucesso!", icon="✅")
+                    
+                    # ---> CORREÇÃO 3: Forçar o recarregamento de cima a baixo
+                    st.rerun()
                     
                 except Exception as e:
                     st.error(f"❌ Erro no PROCV: {str(e)}")
